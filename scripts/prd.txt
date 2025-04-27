@@ -1,0 +1,118 @@
+# Npub.Health - Product Requirements Document
+
+## Product Overview
+Npub.Health is a health metrics dashboard application that allows users to view, manage, and analyze their personal health data from the Nostr ecosystem. The platform focuses on privacy-first data management, integrating with Nostr relays and personal Blossom servers to give users complete control over their health data.
+
+## Target Audience
+- Nostr users tracking health and fitness metrics across various applications
+- Privacy-conscious individuals who want control over their health data
+- Users who want to visualize trends in their health data over time
+
+## Core Features
+
+### 1. Health Metrics Dashboard
+- Display all user health metrics (NIP-101h) in a unified dashboard
+- Show current values for weight, height, age, gender, fitness level, and other metrics
+- Provide interactive visualizations of metric history and trends over time
+- Support multi-metric correlation to see relationships between different health data points
+
+### 2. Workout Data Viewer
+- Display completed workout records (NIP-101e, kind 1301)
+- Show summary statistics for workout history
+- Visualize performance trends over time
+
+### 3. Data Management
+- Import health data from standard Nostr relays
+- Connect to personal Blossom server for private data storage and retrieval
+- Export health data to Blossom or specified relays
+- Provide granular control over where each type of health metric is stored
+- Support data migration between storage locations
+
+### 4. Privacy Controls
+- Allow users to choose storage location for each metric type (public relay or private Blossom)
+- Support NIP-44 encryption for sensitive health data
+- Provide privacy management dashboard showing what data is stored where
+
+## Technical Requirements
+
+### Data Handling
+- Support all NIP-101h health metric kinds (1351-1355+)
+- Support NIP-101e workout record kind (1301)
+- Handle metric and imperial units with automatic conversion
+- Deduplicate metrics from multiple sources
+- Sort and filter health data by date, type, and source
+
+### Relay Integration
+- Connect to standard Nostr relays to fetch public health data
+- Support publishing metrics to user-specified relays
+- Handle bulk data operations efficiently
+
+### Blossom Integration
+- Connect to user's personal Blossom node
+- Store sensitive health data locally first with selective sync
+- Support offline functionality with background sync when online
+
+### User Interface
+- Clean, minimal design focused on data visualization
+- Responsive layout supporting desktop and mobile viewing
+- Interactive charts for health metric trends
+- Customizable dashboard layout
+
+## Non-Features (Explicitly Out of Scope)
+- No workout planning functionality
+- No exercise library or template creation
+- No social sharing features
+- No direct data collection (app is for viewing imported data only)
+
+## Implementation Details
+
+### Core Components
+1. Data Repository Layer
+   - Fetch health metrics from relays and Blossom
+   - Organize, deduplicate, and normalize data
+   - Save metrics to specified destinations
+
+2. Health Dashboard
+   - Current metrics display cards
+   - Historical trend visualization components
+   - Workout history list
+
+3. Data Management
+   - Import/export controls
+   - Blossom connection management
+   - Privacy and storage location settings
+
+### Data Flow
+- Health apps publish data to Nostr ecosystem
+- Npub.Health fetches data from relays and Blossom
+- Users control where new data is stored (relay vs. Blossom)
+- Visualization components render the data
+
+## Phases of Development
+
+### Phase 1: Core Infrastructure
+- Set up relay connections
+- Implement Blossom integration
+- Create data fetching and normalization layer
+- Build basic UI framework
+
+### Phase 2: Health Metrics Dashboard
+- Implement metric cards for current values
+- Create trend visualization charts
+- Build workout history view
+
+### Phase 3: Data Management
+- Develop import/export controls
+- Implement storage location settings
+- Add data privacy controls
+
+### Phase 4: Polish & Optimization
+- Optimize data loading and caching
+- Improve visualization performance
+- Enhance user experience and UI polish
+
+## Success Metrics
+- Number of active users importing and viewing health data
+- Volume of health metrics imported and managed
+- User retention and engagement with the dashboard
+- User feedback on privacy controls and data management features 

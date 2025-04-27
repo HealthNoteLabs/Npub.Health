@@ -1,0 +1,225 @@
+I'll help you create a prototype for Healthstr.dashboard that aggregates data from your existing clients. Here's a structured approach:
+
+```
+Project: Healthstr.dashboard
+Base: npm create iris
+
+1. Authentication Structure:
+```javascript
+// src/components/auth/NostrLogin.jsx
+import { useNostr } from 'nostr-react';
+
+const NostrLogin = () => {
+  const { login, logout, publicKey } = useNostr();
+  
+  return (
+    <div className="auth-container">
+      {!publicKey ? (
+        <button onClick={login}>Connect with Nostr</button>
+      ) : (
+        <div>
+          <span>Connected: {publicKey.slice(0,8)}...</span>
+          <button onClick={logout}>Disconnect</button>
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+2. Data Integration Structure:
+```javascript
+// src/services/clientIntegration.js
+const CLIENT_KINDS = {
+  RUNSTR: 31001,
+  CALMSTR: 31002,
+  HABITSTR: 31003,
+  SLEEPSTR: 31004,
+  DIETSTR: 31005,
+  SPIRITSTR: 31006,
+  LIFTSTR: 31007
+};
+
+const fetchClientData = async (pubkey, kind) => {
+  // Implement nostr event subscription
+};
+```
+
+3. Dashboard Component Structure:
+```javascript
+// src/components/Dashboard.jsx
+import { useState, useEffect } from 'react';
+import { useNostr } from 'nostr-react';
+
+const Dashboard = () => {
+  const [metrics, setMetrics] = useState({
+    running: null,
+    meditation: null,
+    habits: null,
+    sleep: null,
+    nutrition: null,
+    spiritual: null,
+    lifting: null
+  });
+
+  return (
+    <div className="dashboard-grid">
+      <RunstrWidget data={metrics.running} />
+      <CalmstrWidget data={metrics.meditation} />
+      <HabitstrWidget data={metrics.habits} />
+      <SleepstrWidget data={metrics.sleep} />
+      <DietstrWidget data={metrics.nutrition} />
+      <SpiritstrWidget data={metrics.spiritual} />
+      <LiftstrWidget data={metrics.lifting} />
+    </div>
+  );
+};
+```
+
+4. Widget Components Example:
+```javascript
+// src/components/widgets/RunstrWidget.jsx
+const RunstrWidget = ({ data }) => {
+  return (
+    <div className="widget runstr">
+      <h3>Running Metrics</h3>
+      <div className="metrics-grid">
+        <MetricCard
+          title="Weekly Distance"
+          value={data?.weeklyDistance}
+          unit="km"
+        />
+        <MetricCard
+          title="Latest Run"
+          value={data?.lastRunDate}
+          type="date"
+        />
+        {/* Add more metrics */}
+      </div>
+    </div>
+  );
+};
+```
+
+5. Stylesheet Structure:
+```css
+/* src/styles/Dashboard.css */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.widget {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+```
+
+File Structure:
+```
+healthstr-dashboard/
+├── src/
+│   ├── components/
+│   │   ├── auth/
+│   │   │   └── NostrLogin.jsx
+│   │   ├── widgets/
+│   │   │   ├── RunstrWidget.jsx
+│   │   │   ├── CalmstrWidget.jsx
+│   │   │   ├── HabitstrWidget.jsx
+│   │   │   ├── SleepstrWidget.jsx
+│   │   │   ├── DietstrWidget.jsx
+│   │   │   ├── SpiritstrWidget.jsx
+│   │   │   └── LiftstrWidget.jsx
+│   │   └── Dashboard.jsx
+│   ├── services/
+│   │   └── clientIntegration.js
+│   ├── styles/
+│   │   └── Dashboard.css
+│   ├── utils/
+│   │   └── nostrHelpers.js
+│   └── App.jsx
+├── package.json
+└── README.md
+```
+
+Key Implementation Steps:
+
+1. Create the project:
+```bash
+npm create iris healthstr-dashboard
+cd healthstr-dashboard
+```
+
+2. Install additional dependencies:
+```bash
+npm install nostr-tools nostr-react @chakra-ui/react
+```
+
+3. Configure relays:
+```javascript
+// src/utils/nostrHelpers.js
+export const RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.snort.social',
+  // Add more relays
+];
+```
+
+4. Implement data aggregation:
+```javascript
+// src/services/clientIntegration.js
+export const aggregateMetrics = async (pubkey) => {
+  const metrics = {};
+  
+  // Fetch data from each client
+  metrics.running = await fetchClientData(pubkey, CLIENT_KINDS.RUNSTR);
+  metrics.meditation = await fetchClientData(pubkey, CLIENT_KINDS.CALMSTR);
+  // ... fetch other metrics
+  
+  return metrics;
+};
+```
+
+5. Add refresh functionality:
+```javascript
+// src/components/Dashboard.jsx
+const Dashboard = () => {
+  const refreshMetrics = async () => {
+    const newMetrics = await aggregateMetrics(publicKey);
+    setMetrics(newMetrics);
+  };
+
+  return (
+    <div>
+      <button onClick={refreshMetrics}>Refresh Dashboard</button>
+      {/* Dashboard content */}
+    </div>
+  );
+};
+```
+
+This structure provides:
+- Modular widget components
+- Centralized data management
+- Nostr authentication
+- Responsive design
+- Easy extensibility
+
+Next steps would be to:
+1. Implement specific metrics for each widget
+2. Add data visualization (charts, graphs)
+3. Create custom event kinds for dashboard settings
+4. Add widget customization options
+5. Implement real-time updates
+6. Add export functionality
+7. Create sharing capabilities
