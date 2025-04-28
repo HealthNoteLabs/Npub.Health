@@ -5,7 +5,13 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
-  plugins: [react(), runtimeErrorOverlay(), themePlugin()],
+  plugins: [
+    react(), 
+    runtimeErrorOverlay(), 
+    themePlugin({
+      themeJsonPath: path.resolve(__dirname, "theme.json")
+    })
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
