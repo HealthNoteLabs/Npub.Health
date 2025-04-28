@@ -1,0 +1,7 @@
+---
+description: Maintain code modularity through appropriate component creation and architectural consistency
+globs: client/src/**/*.{jsx,tsx,js,ts}
+alwaysApply: true
+---
+
+# Code Organization and Component Structure
