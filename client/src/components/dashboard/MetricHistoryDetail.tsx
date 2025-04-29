@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 interface MetricHistoryData {
-  weight: Array<{ timestamp: number; value: number; unit?: string }>;
-  height: Array<{ timestamp: number; value: number; unit?: string }>;
+  weight: Array<{ timestamp: number; value: number; unit?: string; displayValue?: string; displayUnit?: string }>;
+  height: Array<{ timestamp: number; value: number; unit?: string; displayValue?: string; displayUnit?: string }>;
   age: Array<{ timestamp: number; value: number; unit?: string }>;
 }
 
@@ -65,7 +65,7 @@ const MetricHistoryDetail: React.FC = () => {
   }
 
   // Determine the appropriate data, unit and kind based on metric type
-  let data: Array<{ timestamp: number; value: number; unit?: string }> = [];
+  let data: Array<{ timestamp: number; value: number; unit?: string; displayValue?: string; displayUnit?: string }> = [];
   let unit = '';
   let kind = 0;
   let title = '';
@@ -74,14 +74,14 @@ const MetricHistoryDetail: React.FC = () => {
   switch (metricType) {
     case 'weight':
       data = history?.weight || [];
-      unit = 'kg';
+      unit = 'lbs';
       kind = CLIENT_KINDS.WEIGHT;
       title = 'Weight History';
       description = 'Track your weight changes over time';
       break;
     case 'height':
       data = history?.height || [];
-      unit = 'cm';
+      unit = 'ft-in';
       kind = CLIENT_KINDS.HEIGHT;
       title = 'Height History';
       description = 'Your recorded height measurements';
@@ -113,10 +113,10 @@ const MetricHistoryDetail: React.FC = () => {
       <div className="w-full">
         <MetricHistoryChart
           title={title}
-          metricKind={kind}
-          data={data}
+          historyData={data}
           unit={unit}
-          description={description}
+          displayUnit={metricType === 'height' ? 'ft-in' : unit}
+          className="w-full"
         />
       </div>
 
@@ -140,7 +140,9 @@ const MetricHistoryDetail: React.FC = () => {
                         {new Date(item.timestamp * 1000).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item.value} {unit}
+                        {metricType === 'height' && item.displayValue 
+                          ? item.displayValue 
+                          : item.value} {metricType === 'height' && item.displayUnit ? '' : unit}
                       </td>
                     </tr>
                   ))}

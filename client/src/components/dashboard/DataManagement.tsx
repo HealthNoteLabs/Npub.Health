@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Cloud,
   Database,
@@ -17,6 +18,9 @@ import {
   Home,
   AlertTriangle
 } from "lucide-react";
+import { blossomService } from '@/lib/blossomService';
+import { useNostr } from '../../components/NostrProvider';
+import { driveManager, DriveCategory } from '@/lib/driveManager';
 
 interface DataManagementProps {
   connected?: boolean;
@@ -25,83 +29,297 @@ interface DataManagementProps {
   blossomUrl?: string;
 }
 
+interface MetricPrivacySettings {
+  isPublic: boolean;
+  encrypted: boolean;
+  storage: 'relay' | 'blossom' | 'drive';
+}
+
 export default function DataManagement({
   connected = false,
   relays = [],
-  blossomConnected = false,
-  blossomUrl = ''
+  blossomConnected: initialBlossomConnected = false,
+  blossomUrl: initialBlossomUrl = ''
 }: DataManagementProps) {
   const [activeTab, setActiveTab] = useState('import');
   const [importSource, setImportSource] = useState('relay');
   const [exportDestination, setExportDestination] = useState('relay');
   const [customRelayUrl, setCustomRelayUrl] = useState('');
-  const [customBlossomUrl, setCustomBlossomUrl] = useState(blossomUrl || '');
+  const [customBlossomUrl, setCustomBlossomUrl] = useState(initialBlossomUrl || '');
   const [loading, setLoading] = useState(false);
-  const [metricPrivacySettings, setMetricPrivacySettings] = useState({
-    weight: { isPublic: false, encrypted: true },
-    height: { isPublic: false, encrypted: true },
-    age: { isPublic: false, encrypted: true },
-    gender: { isPublic: false, encrypted: true },
-    fitnessLevel: { isPublic: true, encrypted: false },
-    workouts: { isPublic: true, encrypted: false },
-    running: { isPublic: true, encrypted: false },
-    meditation: { isPublic: true, encrypted: false },
-    habits: { isPublic: true, encrypted: false },
-    sleep: { isPublic: false, encrypted: true },
-    nutrition: { isPublic: false, encrypted: true },
-    spiritual: { isPublic: true, encrypted: false },
-    lifting: { isPublic: true, encrypted: false }
+  const [blossomConnected, setBlossomConnected] = useState(initialBlossomConnected || blossomService.isConnected());
+  const [blossomUrl, setBlossomUrl] = useState(initialBlossomUrl || blossomService.getServerUrl() || '');
+  const { toast } = useToast();
+  const { publicKey } = useNostr();
+  const [metricPrivacySettings, setMetricPrivacySettings] = useState<Record<string, MetricPrivacySettings>>({
+    weight: { isPublic: false, encrypted: true, storage: 'drive' },
+    height: { isPublic: false, encrypted: true, storage: 'drive' },
+    age: { isPublic: false, encrypted: true, storage: 'drive' },
+    gender: { isPublic: false, encrypted: true, storage: 'drive' },
+    fitnessLevel: { isPublic: true, encrypted: false, storage: 'relay' },
+    workouts: { isPublic: true, encrypted: false, storage: 'relay' },
+    running: { isPublic: true, encrypted: false, storage: 'relay' },
+    meditation: { isPublic: true, encrypted: false, storage: 'relay' },
+    habits: { isPublic: true, encrypted: false, storage: 'relay' },
+    sleep: { isPublic: false, encrypted: true, storage: 'drive' },
+    nutrition: { isPublic: false, encrypted: true, storage: 'drive' },
+    spiritual: { isPublic: true, encrypted: false, storage: 'relay' },
+    lifting: { isPublic: true, encrypted: false, storage: 'relay' }
   });
 
+  // Load blossom connection status on component mount
+  useEffect(() => {
+    const isConnected = blossomService.isConnected();
+    setBlossomConnected(isConnected);
+    
+    if (isConnected) {
+      const url = blossomService.getServerUrl();
+      if (url) {
+        setBlossomUrl(url);
+        setCustomBlossomUrl(url);
+      }
+    }
+  }, []);
+
+  // Add event listener for blossom disconnection
+  useEffect(() => {
+    // Listen for the disconnected event to clear any stored data
+    const handleDisconnect = () => {
+      console.log('Blossom server disconnected, clearing cached data');
+      // No need to call clearDrives as that's been removed from our implementation
+    };
+    
+    blossomService.on('disconnected', handleDisconnect);
+    
+    return () => {
+      blossomService.removeListener('disconnected', handleDisconnect);
+    };
+  }, []);
+
   // These functions would connect to actual API endpoints in a real implementation
-  const handleImport = () => {
+  const handleImport = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      if (importSource === 'blossom') {
+        if (!blossomConnected) {
+          throw new Error('Not connected to a Blossom server');
+        }
+        
+        if (!publicKey) {
+          throw new Error('Nostr public key not available');
+        }
+        
+        // Fetch data from Blossom
+        const blobs = await driveManager.listHealthData(publicKey, DriveCategory.METRICS);
+        
+        if (blobs.length === 0) {
+          toast({
+            title: "No Data Found",
+            description: "No health metrics found in Blossom server",
+          });
+        } else {
+          // For this phase, just show we found the data
+          toast({
+            title: "Import Successful",
+            description: `Found ${blobs.length} health metrics in Blossom server`,
+          });
+          
+          // For the first few blobs, try to fetch and display their content
+          if (blobs.length > 0) {
+            const sample = blobs.slice(0, Math.min(3, blobs.length));
+            
+            // Process each blob to extract its data
+            for (const blob of sample) {
+              try {
+                if (blob.hash) {
+                  const data = await driveManager.getHealthData(blob.hash, publicKey);
+                  console.log(`Retrieved blob data:`, data);
+                }
+              } catch (e) {
+                console.error(`Error getting blob data:`, e);
+              }
+            }
+          }
+        }
+      } else {
+        // Simulate relay import for now
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        toast({
+          title: "Import Successful",
+          description: "Data imported from relays successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    } finally {
       setLoading(false);
-      // Show success notification
-      alert('Data imported successfully');
-    }, 2000);
+    }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      if (exportDestination === 'blossom') {
+        if (!blossomConnected) {
+          throw new Error('Not connected to a Blossom server');
+        }
+        
+        if (!publicKey) {
+          throw new Error('Nostr public key not available');
+        }
+        
+        // Mock data for this phase
+        const metrics = {
+          weight: { value: '75', unit: 'kg' },
+          height: { value: '180', unit: 'cm' },
+        };
+        
+        // Store each selected metric in the drive
+        const exportResults = [];
+        
+        // Get the checked metrics from the UI
+        const checkedMetrics = Object.entries(metricPrivacySettings)
+          .filter(([metricName, _]) => {
+            const checkbox = document.getElementById(`export-${metricName}`) as HTMLInputElement;
+            return checkbox && checkbox.checked;
+          })
+          .map(([metricName, _]) => metricName);
+        
+        // Store each checked metric
+        for (const metricName of checkedMetrics) {
+          if (metrics[metricName as keyof typeof metrics]) {
+            const result = await driveManager.storeHealthData(
+              publicKey,
+              DriveCategory.METRICS,
+              metricName,
+              metrics[metricName as keyof typeof metrics]
+            );
+            exportResults.push({ metric: metricName, result });
+          }
+        }
+        
+        toast({
+          title: "Export Successful",
+          description: `Exported ${exportResults.length} metrics to Blossom server`,
+        });
+      } else {
+        // Simulate relay export for now
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        toast({
+          title: "Export Successful",
+          description: "Data exported to relays successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    } finally {
       setLoading(false);
-      // Show success notification
-      alert('Data exported successfully');
-    }, 2000);
+    }
   };
 
-  const handleConnectBlossom = () => {
+  const handleConnectBlossom = async () => {
+    if (!customBlossomUrl) {
+      toast({
+        title: "Connection Failed",
+        description: "Please enter a valid Blossom server URL",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      const success = await blossomService.connect(customBlossomUrl);
+      
+      if (success) {
+        setBlossomConnected(true);
+        setBlossomUrl(customBlossomUrl);
+        
+        toast({
+          title: "Connection Successful",
+          description: `Connected to Blossom server at ${customBlossomUrl}`,
+        });
+      } else {
+        throw new Error('Failed to connect to Blossom server');
+      }
+    } catch (error) {
+      console.error('Blossom connection error:', error);
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect to Blossom server",
+        variant: "destructive"
+      });
+      setBlossomConnected(false);
+    } finally {
       setLoading(false);
-      // Show success notification
-      alert('Connected to Blossom server');
-    }, 2000);
+    }
   };
 
-  const handleConnectRelay = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      // Show success notification
-      alert('Connected to custom relay');
-    }, 2000);
+  const handleDisconnectBlossom = () => {
+    blossomService.disconnect();
+    setBlossomConnected(false);
+    setBlossomUrl('');
+    
+    toast({
+      title: "Disconnected",
+      description: "Disconnected from Blossom server",
+    });
+  };
+
+  const updateMetricStorage = (metric: string, storage: 'relay' | 'blossom' | 'drive') => {
+    setMetricPrivacySettings(prev => ({
+      ...prev,
+      [metric]: {
+        ...prev[metric],
+        storage,
+        encrypted: storage === 'drive' ? true : prev[metric].encrypted
+      }
+    }));
   };
 
   const toggleMetricPrivacy = (metric: string, setting: 'isPublic' | 'encrypted') => {
     setMetricPrivacySettings(prev => ({
       ...prev,
       [metric]: {
-        ...prev[metric as keyof typeof prev],
-        [setting]: !prev[metric as keyof typeof prev][setting]
+        ...prev[metric],
+        [setting]: !prev[metric][setting]
       }
     }));
+  };
+
+  const handleConnectRelay = () => {
+    if (!customRelayUrl) {
+      toast({
+        title: "Connection Failed",
+        description: "Please enter a valid relay URL",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    // Simulate relay connection for now
+    setTimeout(() => {
+      setLoading(false);
+      toast({
+        title: "Connection Successful",
+        description: `Connected to relay at ${customRelayUrl}`,
+      });
+    }, 1000);
   };
 
   return (
@@ -197,20 +415,35 @@ export default function DataManagement({
                       )}
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="blossom-url">Blossom Server URL</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          id="blossom-url"
-                          placeholder="https://blossom.example.com" 
-                          value={customBlossomUrl}
-                          onChange={(e) => setCustomBlossomUrl(e.target.value)}
-                        />
-                        <Button onClick={handleConnectBlossom} disabled={!customBlossomUrl || loading}>
-                          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Connect"}
+                    {blossomConnected && (
+                      <div className="p-2 bg-muted/20 rounded flex justify-between items-center">
+                        <span className="text-sm">{blossomUrl}</span>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleDisconnectBlossom}
+                        >
+                          Disconnect
                         </Button>
                       </div>
-                    </div>
+                    )}
+                    
+                    {!blossomConnected && (
+                      <div className="space-y-2">
+                        <Label htmlFor="blossom-url">Blossom Server URL</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            id="blossom-url"
+                            placeholder="https://blossom.example.com" 
+                            value={customBlossomUrl}
+                            onChange={(e) => setCustomBlossomUrl(e.target.value)}
+                          />
+                          <Button onClick={handleConnectBlossom} disabled={!customBlossomUrl || loading}>
+                            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Connect"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -311,7 +544,10 @@ export default function DataManagement({
                         {metric.charAt(0).toUpperCase() + metric.slice(1)}
                       </div>
                       <div>
-                        <Select defaultValue={settings.isPublic ? "relay" : "blossom"}>
+                        <Select 
+                          value={settings.storage}
+                          onValueChange={(value) => updateMetricStorage(metric, value as 'relay' | 'blossom' | 'drive')}
+                        >
                           <SelectTrigger className="h-8">
                             <SelectValue />
                           </SelectTrigger>
@@ -326,6 +562,12 @@ export default function DataManagement({
                               <div className="flex items-center gap-2">
                                 <Home className="h-3.5 w-3.5" />
                                 <span>Blossom</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="drive">
+                              <div className="flex items-center gap-2">
+                                <Database className="h-3.5 w-3.5" />
+                                <span>Encrypted Drive</span>
                               </div>
                             </SelectItem>
                           </SelectContent>

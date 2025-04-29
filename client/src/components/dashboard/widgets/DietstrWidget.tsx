@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import MetricCard from "../MetricCard";
-import { Utensils } from "lucide-react";
+import { Utensils, Loader2 } from "lucide-react";
 import { MetricLineChart } from "../ChartComponents";
 
 interface DietstrWidgetProps {
@@ -33,35 +33,32 @@ export default function DietstrWidget({ data, loading }: DietstrWidgetProps) {
         <Utensils className="h-5 w-5 text-primary" />
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <MetricCard
-            title="Calories"
-            value={data?.calories}
-            unit="kcal"
-            loading={loading}
-          />
-          <MetricCard
-            title="Protein"
-            value={data?.protein}
-            unit="g"
-            loading={loading}
-          />
-          <MetricCard
-            title="Water"
-            value={data?.water}
-            unit="L"
-            loading={loading}
-          />
-        </div>
-
-        <div className="pt-4">
-          <h4 className="text-sm font-medium text-muted-foreground mb-3">Calorie Intake (Last 7 Days)</h4>
-          <MetricLineChart 
-            data={data?.calorieHistory || sampleData}
-            loading={loading}
-            color="hsl(var(--chart-5))"
-          />
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : data?.calories ? (
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              <MetricCard
+                title="Calories"
+                value={data.calories}
+                unit="kcal"
+                loading={false}
+              />
+            </div>
+            <div className="pt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                More detailed nutrition tracking (protein, water, etc.) is not currently enabled.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-48 text-center">
+            <p className="text-muted-foreground mb-2">Nutrition data is not currently being tracked.</p>
+            <p className="text-sm text-muted-foreground">Enable nutrition tracking in your profile settings to see your data here.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

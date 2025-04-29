@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNostr } from '../NostrProvider';
-import { aggregateAllMetrics } from '@/lib/nostr';
+import { fetchHealthProfile, fetchWorkouts } from '../../lib/nostr';
 import { type HealthMetrics } from '@shared/schema';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { RefreshCw } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RefreshCw, BarChart3, Activity, HeartPulse, Dumbbell, Brain, Utensils, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RunstrWidget from './widgets/RunstrWidget';
 import CalmstrWidget from './widgets/CalmstrWidget';
@@ -29,6 +29,17 @@ interface TimeSeriesData {
   [key: string]: number | string;
 }
 
+// Define workout data type if not exported from schema
+interface WorkoutData {
+  id: string;
+  type: string;
+  duration: number;
+  calories: number;
+  distance?: number;
+  date: string;
+  notes?: string;
+}
+
 // Define available metrics for correlation analysis
 const AVAILABLE_METRICS = [
   { id: 'running', name: 'Running', unit: 'km', color: 'hsl(var(--chart-1))' },
@@ -43,65 +54,75 @@ const AVAILABLE_METRICS = [
 
 export default function Dashboard() {
   const { publicKey } = useNostr();
-  const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
+  const [healthData, setHealthData] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [workouts, setWorkouts] = useState<WorkoutData[]>([]);
   const [trendsData, setTrendsData] = useState<TimeSeriesData[]>([]);
   const [weightTrendData, setWeightTrendData] = useState<Array<{date: string, value: number}>>([]);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const fetchMetrics = async () => {
+  // Fetch actual data from API
+  useEffect(() => {
     if (!publicKey) return;
-    setLoading(true);
-    try {
-      const data = await aggregateAllMetrics(publicKey);
-      setMetrics(data as HealthMetrics);
-
-      // In a real application, you would fetch historical data here
-      // For now, we'll use sample data
-      const sampleTrendsData = generateSampleTrendsData();
-      setTrendsData(sampleTrendsData);
-      
-      // Generate weight trend data
-      const weightData = generateSampleWeightData();
-      setWeightTrendData(weightData);
-    } catch (error) {
-      console.error('Error fetching metrics:', error);
-    }
-    setLoading(false);
-  };
-
-  // Helper function to generate sample trends data
-  const generateSampleTrendsData = () => {
-    const dates = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (29 - i));
-      return date.toISOString().split('T')[0];
-    });
-
-    return dates.map(date => {
-      // Add some randomness to make the data look realistic
-      const dayOfMonth = new Date(date).getDate();
-      const trendFactor = dayOfMonth / 30; // Creates a slight upward trend over the month
-      
-      return {
-        date,
-        running: Math.random() * 6 + 4 + trendFactor * 2, // 4-10 km with upward trend
-        meditation: Math.random() * 20 + 15 + trendFactor * 10, // 15-35 minutes with upward trend
-        habits: Math.floor(Math.random() * 3 + 6 + trendFactor * 2), // 6-9 habits with upward trend
-        sleep: Math.random() * 1.5 + 6.5 + (trendFactor * 0.5), // 6.5-8 hours with slight upward trend
-        nutrition: Math.random() * 5 + 22 + (trendFactor * 3), // 2200-2700 calories with upward trend
-        spiritual: Math.random() * 10 + 75 + (trendFactor * 10), // 75-90 score with upward trend
-        lifting: Math.random() * 20 + 120 + (trendFactor * 30), // 120-150 kg with upward trend
-        weight: 75 - Math.random() * 1 - (trendFactor * 2), // Weight slowly decreasing
-      };
-    });
-  };
-
-  // Helper function to generate sample weight data
+    
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch health profile
+        const profile = await fetchHealthProfile(publicKey);
+        
+        // Extract profile data safely
+        const profileData = profile as any; // Use any temporarily to extract the data
+        
+        // Initialize a complete HealthMetrics object with the data we have
+        const healthMetrics: HealthMetrics = {
+          running: { weeklyDistance: 0, lastRunDate: "", avgPace: 0, totalRuns: 0 },
+          meditation: { weeklyMinutes: 0, currentStreak: 0, lastSession: "" },
+          habits: { completed: 0, total: 0, streak: 0 },
+          sleep: { avgDuration: 0, quality: 0, lastNight: 0 },
+          nutrition: { calories: profileData?.nutrition?.calories || 0, protein: 0, water: 0 },
+          spiritual: { meditationMinutes: 0, journalEntries: 0, gratitudeNotes: 0 },
+          lifting: { totalWeight: 0, personalBests: 0, workouts: 0 },
+          weight: profileData?.weight || undefined,
+          height: profileData?.height || undefined,
+          age: profileData?.age || undefined,
+          gender: profileData?.gender || undefined,
+          fitnessLevel: profileData?.fitnessLevel || undefined,
+          workouts: []
+        };
+        
+        setHealthData(healthMetrics);
+        
+        // Fetch recent workouts and format them to match our interface
+        const rawWorkoutData = await fetchWorkouts(publicKey, 5); // Last 5 workouts
+        const formattedWorkouts = rawWorkoutData.map((workout: any) => {
+          return {
+            id: workout.id || String(Math.random()),
+            type: workout.type || 'Unknown',
+            duration: workout.duration || 0,
+            calories: workout.totalCalories || 0,
+            distance: workout.distance,
+            date: workout.startTime || new Date().toISOString(),
+            notes: workout.notes
+          } as WorkoutData;
+        });
+        
+        setWorkouts(formattedWorkouts);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [publicKey]);
+  
+  // Fallback sample data for weight widget if no real data is available
   const generateSampleWeightData = () => {
-    const dates = Array.from({ length: 30 }, (_, i) => {
+    const dates = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - (29 - i));
+      date.setDate(date.getDate() - (6 - i));
       return date.toISOString().split('T')[0];
     });
 
@@ -119,77 +140,129 @@ export default function Dashboard() {
     });
   };
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [publicKey]);
-
   if (!publicKey) {
     return (
-      <Card className="p-6 text-center">
-        <h2 className="text-2xl font-bold mb-4">Welcome to Healthstr Dashboard</h2>
-        <p>Please connect your Nostr account to view your health metrics.</p>
+      <Card variant="gradient" className="p-6 text-center mx-auto max-w-lg mt-12 animate-scale-in">
+        <div className="flex flex-col items-center gap-4 py-8">
+          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <HeartPulse className="h-8 w-8 text-primary animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Welcome to Npub.Health</h2>
+          <p className="text-muted-foreground mb-6">Connect your Nostr account to view your health metrics and start tracking your wellness journey.</p>
+          <Button variant="gradient" className="px-6">Connect Nostr</Button>
+        </div>
       </Card>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Health Dashboard</h1>
+    <div className="container px-4 py-8 max-w-6xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-4xl font-bold mb-2 gradient-text">Health Dashboard</h1>
+          <p className="text-muted-foreground">Track, analyze, and optimize your health metrics</p>
+        </div>
         <Button
-          onClick={fetchMetrics}
+          onClick={() => {}}
           disabled={loading}
-          variant="outline"
+          variant="glass"
+          className="gap-2"
+          isLoading={loading}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className="h-4 w-4" />
+          Refresh Data
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-[400px]">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="details">Detailed Trends</TabsTrigger>
-          <TabsTrigger value="correlations">Correlations</TabsTrigger>
-          <TabsTrigger value="management">Data Management</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="overview" className="space-y-8" value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-border/40">
+          <TabsList className="h-10 bg-background/50 p-1 backdrop-blur-sm">
+            <TabsTrigger 
+              value="overview" 
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Activity className="h-4 w-4" />
+              <span>Overview</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="details" 
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Detailed Trends</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="correlations" 
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Brain className="h-4 w-4" />
+              <span>Correlations</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="management" 
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Data Management</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
         
-        <TabsContent value="overview" className="space-y-6">
-          <HealthMetricsTrend data={trendsData} loading={loading} />
+        <TabsContent value="overview" className="space-y-6 animate-scale-in">
+          <Card variant="glass" className="overflow-hidden">
+            <CardHeader className="border-b border-border/30 bg-primary/5">
+              <CardTitle className="flex items-center text-xl">
+                <Activity className="mr-2 h-5 w-5 text-primary" />
+                Health Metrics Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <HealthMetricsTrend data={trendsData} loading={loading} />
+            </CardContent>
+          </Card>
 
           <div>
-            <h2 className="text-xl font-semibold mb-4">Basic Health Metrics</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-6 w-1 bg-gradient-to-b from-health-blue to-health-purple rounded-full"></div>
+              <h2 className="text-xl font-bold">Basic Health Metrics</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <WeightWidget data={metrics?.weight} loading={loading} />
-              <HeightWidget data={metrics?.height} loading={loading} />
-              <AgeWidget data={metrics?.age} loading={loading} />
-              <GenderWidget data={metrics?.gender} loading={loading} />
-              <FitnessLevelWidget data={metrics?.fitnessLevel} loading={loading} />
+              <WeightWidget data={healthData?.weight} loading={loading} />
+              <HeightWidget data={healthData?.height} loading={loading} />
+              <AgeWidget data={healthData?.age} loading={loading} />
+              <GenderWidget data={healthData?.gender} loading={loading} />
+              <FitnessLevelWidget data={healthData?.fitnessLevel} loading={loading} />
             </div>
           </div>
           
           <div>
-            <h2 className="text-xl font-semibold mb-4">Workout Records</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-6 w-1 bg-gradient-to-b from-health-blue to-health-purple rounded-full"></div>
+              <h2 className="text-xl font-bold">Workout Records</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <WorkoutWidget data={metrics?.workouts} loading={loading} />
+              <WorkoutWidget data={workouts} loading={loading} />
             </div>
           </div>
           
           <div>
-            <h2 className="text-xl font-semibold mb-4">Activity Metrics</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-6 w-1 bg-gradient-to-b from-health-blue to-health-purple rounded-full"></div>
+              <h2 className="text-xl font-bold">Activity Metrics</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <RunstrWidget data={metrics?.running} loading={loading} />
-              <CalmstrWidget data={metrics?.meditation} loading={loading} />
-              <HabitstrWidget data={metrics?.habits} loading={loading} />
-              <SleepstrWidget data={metrics?.sleep} loading={loading} />
-              <DietstrWidget data={metrics?.nutrition} loading={loading} />
-              <SpiritstrWidget data={metrics?.spiritual} loading={loading} />
-              <LiftstrWidget data={metrics?.lifting} loading={loading} />
+              <RunstrWidget data={healthData?.running} loading={loading} />
+              <CalmstrWidget data={healthData?.meditation} loading={loading} />
+              <HabitstrWidget data={healthData?.habits} loading={loading} />
+              <SleepstrWidget data={healthData?.sleep} loading={loading} />
+              <DietstrWidget data={healthData?.nutrition} loading={loading} />
+              <SpiritstrWidget data={healthData?.spiritual} loading={loading} />
+              <LiftstrWidget data={healthData?.lifting} loading={loading} />
             </div>
           </div>
         </TabsContent>
         
-        <TabsContent value="details" className="space-y-6">
+        <TabsContent value="details" className="space-y-6 animate-scale-in">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <HealthMetricsTrendDetail 
               title="Weight"
@@ -247,33 +320,90 @@ export default function Dashboard() {
           </div>
         </TabsContent>
         
-        <TabsContent value="correlations" className="space-y-6">
-          <MultiMetricCorrelation 
-            data={trendsData}
-            loading={loading}
-            metrics={AVAILABLE_METRICS}
-          />
+        <TabsContent value="correlations" className="space-y-6 animate-scale-in">
+          <Card variant="glass">
+            <CardHeader className="border-b border-border/30 bg-primary/5">
+              <CardTitle className="flex items-center text-xl">
+                <Brain className="mr-2 h-5 w-5 text-primary" />
+                Health Metrics Correlations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <MultiMetricCorrelation 
+                data={trendsData}
+                loading={loading}
+                metrics={AVAILABLE_METRICS}
+              />
+            </CardContent>
+          </Card>
           
-          <div className="p-4 bg-muted/20 rounded-lg border">
-            <h3 className="text-lg font-medium mb-2">Understanding Correlations</h3>
-            <p className="text-sm text-muted-foreground mb-2">
-              The correlation analysis helps you understand relationships between different health metrics:
-            </p>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-              <li>A <span className="font-medium">positive correlation</span> means that as one metric increases, the other tends to increase as well.</li>
-              <li>A <span className="font-medium">negative correlation</span> means that as one metric increases, the other tends to decrease.</li>
-              <li>Correlation strength ranges from 0 (no relationship) to 1 (perfect relationship).</li>
-              <li>Correlation does not necessarily imply causation; other factors may be involved.</li>
-            </ul>
-          </div>
+          <Card variant="glass" className="p-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium flex items-center">
+                <Brain className="mr-2 h-5 w-5 text-primary" />
+                Understanding Correlations
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                The correlation analysis helps you understand relationships between different health metrics:
+              </p>
+              <ul className="grid gap-3 py-4">
+                <li className="flex gap-2">
+                  <div className="h-6 w-6 rounded-full bg-health-green/20 flex items-center justify-center flex-shrink-0">
+                    <div className="h-2 w-2 rounded-full bg-health-green"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium">Positive correlation</p>
+                    <p className="text-sm text-muted-foreground">As one metric increases, the other tends to increase as well.</p>
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <div className="h-6 w-6 rounded-full bg-health-red/20 flex items-center justify-center flex-shrink-0">
+                    <div className="h-2 w-2 rounded-full bg-health-red"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium">Negative correlation</p>
+                    <p className="text-sm text-muted-foreground">As one metric increases, the other tends to decrease.</p>
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="h-2 w-2 rounded-full bg-muted-foreground"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium">Correlation strength</p>
+                    <p className="text-sm text-muted-foreground">Ranges from 0 (no relationship) to 1 (perfect relationship).</p>
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <div className="h-6 w-6 rounded-full bg-health-blue/20 flex items-center justify-center flex-shrink-0">
+                    <div className="h-2 w-2 rounded-full bg-health-blue"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium">Not causation</p>
+                    <p className="text-sm text-muted-foreground">Correlation does not necessarily imply causation; other factors may be involved.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </Card>
         </TabsContent>
         
-        <TabsContent value="management" className="space-y-6">
-          <DataManagement 
-            connected={!!publicKey}
-            relays={['wss://relay.nostr.band', 'wss://relay.damus.io']} 
-            blossomConnected={false}
-          />
+        <TabsContent value="management" className="space-y-6 animate-scale-in">
+          <Card variant="glass">
+            <CardHeader className="border-b border-border/30 bg-primary/5">
+              <CardTitle className="flex items-center text-xl">
+                <Settings className="mr-2 h-5 w-5 text-primary" />
+                Data Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <DataManagement 
+                connected={!!publicKey}
+                relays={['wss://relay.nostr.band', 'wss://relay.damus.io']} 
+                blossomConnected={false}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

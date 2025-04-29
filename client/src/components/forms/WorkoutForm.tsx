@@ -93,18 +93,18 @@ const WorkoutForm: React.FC = () => {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-card p-6 rounded-lg shadow-md">
       <h2 className="text-xl font-semibold mb-4">Log Workout</h2>
       
       {message && (
-        <div className={`p-3 mb-4 rounded ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+        <div className={`p-3 mb-4 rounded ${message.type === 'success' ? 'bg-[hsl(var(--health-green))]/20 text-[hsl(var(--health-green))]' : 'bg-destructive/20 text-destructive'}`}>
           {message.text}
         </div>
       )}
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="type" className="block text-sm font-medium text-foreground mb-1">
             Workout Type*
           </label>
           <input
@@ -114,14 +114,14 @@ const WorkoutForm: React.FC = () => {
             value={formData.type}
             onChange={handleChange}
             placeholder="e.g., Running, Weightlifting, Yoga"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             aria-label="Workout type"
             required
           />
         </div>
         
         <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1">
             Duration (minutes)*
           </label>
           <input
@@ -132,14 +132,14 @@ const WorkoutForm: React.FC = () => {
             onChange={handleChange}
             placeholder="Duration in minutes"
             min="1"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             aria-label="Workout duration in minutes"
             required
           />
         </div>
         
         <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1">
             Date*
           </label>
           <input
@@ -148,14 +148,14 @@ const WorkoutForm: React.FC = () => {
             name="date"
             value={formData.date}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             aria-label="Workout date"
             required
           />
         </div>
         
         <div>
-          <label htmlFor="intensity" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="intensity" className="block text-sm font-medium text-foreground mb-1">
             Intensity
           </label>
           <select
@@ -163,7 +163,7 @@ const WorkoutForm: React.FC = () => {
             name="intensity"
             value={formData.intensity}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             aria-label="Workout intensity"
           >
             {intensityOptions.map(option => (
@@ -175,7 +175,7 @@ const WorkoutForm: React.FC = () => {
         </div>
         
         <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-1">
             Notes (Optional)
           </label>
           <textarea
@@ -185,7 +185,7 @@ const WorkoutForm: React.FC = () => {
             onChange={handleChange}
             rows={3}
             placeholder="Any additional details about your workout"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             aria-label="Workout notes"
           />
         </div>
@@ -193,7 +193,7 @@ const WorkoutForm: React.FC = () => {
         <button
           type="submit"
           disabled={isSubmitting}
-          className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
+          className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
         >
           {isSubmitting ? 'Saving...' : 'Log Workout'}
         </button>

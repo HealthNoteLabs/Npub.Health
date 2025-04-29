@@ -1,163 +1,262 @@
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MetricHistoryPoint } from './EnhancedMetricCard';
 
-interface MetricHistoryChartProps {
+export interface MetricHistoryChartProps {
   title: string;
-  metricKind: number;
-  description?: string;
-  data?: Array<{
-    timestamp: number;
-    value: number;
-  }>;
+  historyData: MetricHistoryPoint[];
   unit?: string;
+  displayUnit?: string;
+  timeRanges?: string[];
+  defaultRange?: string;
+  className?: string;
 }
 
-const MetricHistoryChart: React.FC<MetricHistoryChartProps> = ({
+export default function MetricHistoryChart({
   title,
-  metricKind,
-  description,
-  data = [],
-  unit = ''
-}) => {
-  // Helper function to format dates
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
+  historyData,
+  unit = '',
+  displayUnit = '',
+  timeRanges = ['1W', '1M', '3M', '6M', '1Y', 'All'],
+  defaultRange = '1M',
+  className
+}: MetricHistoryChartProps) {
+  const [selectedRange, setSelectedRange] = useState(defaultRange);
+  const [chartType, setChartType] = useState<'line' | 'area' | 'bar'>('line');
+  const [date, setDate] = useState<Date | undefined>(new Date());
 
-  const maxValue = data.length > 0 ? Math.max(...data.map(d => d.value)) * 1.1 : 100;
-  const minValue = data.length > 0 ? Math.min(...data.map(d => d.value)) * 0.9 : 0;
-  
-  // Calculate chart dimensions
-  const chartHeight = 200;
-  const chartWidth = '100%';
-  const paddingX = 40;
-  const paddingY = 20;
+  // Process data based on selected time range
+  const processedData = React.useMemo(() => {
+    // Sort by timestamp, earliest first
+    const sortedData = [...historyData].sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Filter based on time range
+    const now = Date.now() / 1000; // Current time in seconds
+    let filteredData = sortedData;
+    
+    if (selectedRange === '1W') {
+      // Last 7 days
+      filteredData = sortedData.filter(d => d.timestamp > now - 7 * 24 * 60 * 60);
+    } else if (selectedRange === '1M') {
+      // Last 30 days
+      filteredData = sortedData.filter(d => d.timestamp > now - 30 * 24 * 60 * 60);
+    } else if (selectedRange === '3M') {
+      // Last 90 days
+      filteredData = sortedData.filter(d => d.timestamp > now - 90 * 24 * 60 * 60);
+    } else if (selectedRange === '6M') {
+      // Last 180 days
+      filteredData = sortedData.filter(d => d.timestamp > now - 180 * 24 * 60 * 60);
+    } else if (selectedRange === '1Y') {
+      // Last 365 days
+      filteredData = sortedData.filter(d => d.timestamp > now - 365 * 24 * 60 * 60);
+    }
+    
+    // Format the data for the chart
+    return filteredData.map(point => ({
+      date: new Date(point.timestamp * 1000).toLocaleDateString(),
+      value: typeof point.value === 'string' ? parseFloat(point.value) : point.value,
+      displayValue: point.displayValue || point.value,
+      rawTimestamp: point.timestamp
+    }));
+  }, [historyData, selectedRange]);
 
-  // If no data, return placeholder
-  if (data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center h-48">
-            <p className="text-gray-500">No historical data available</p>
-            <p className="text-gray-400 text-sm mt-2">Data from Nostr kind {metricKind}</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Calculate stats
+  const stats = React.useMemo(() => {
+    if (processedData.length === 0) return { min: 0, max: 0, avg: 0, latest: 0, change: 0 };
+    
+    const values = processedData.map(d => d.value as number);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const sum = values.reduce((acc, val) => acc + val, 0);
+    const avg = sum / values.length;
+    const latest = values[values.length - 1];
+    const earliest = values[0];
+    const change = earliest !== 0 ? ((latest - earliest) / earliest) * 100 : 0;
+    
+    return { min, max, avg, latest, change };
+  }, [processedData]);
 
-  // Sort data by timestamp
-  const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-
-  // Generate SVG path for the line chart
-  const generatePath = () => {
-    if (sortedData.length === 0) return '';
-
-    const xScale = (width: number) => (index: number) => {
-      return paddingX + (index / (sortedData.length - 1)) * (width - 2 * paddingX);
-    };
-
-    const yScale = (value: number) => {
-      return chartHeight - paddingY - ((value - minValue) / (maxValue - minValue)) * (chartHeight - 2 * paddingY);
-    };
-
-    const pathGenerator = (width: number) => {
-      const x = xScale(width);
-      
-      return sortedData.map((d, i) => {
-        return `${i === 0 ? 'M' : 'L'} ${x(i)} ${yScale(d.value)}`;
-      }).join(' ');
-    };
-
-    return pathGenerator(500); // Default width for path generation
-  };
+  // Format displayed date
+  const formattedDate = date ? format(date, 'PPP') : '';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <p className="text-sm text-gray-500">{description}</p>}
+    <Card className={cn("w-full", className)}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-xl">{title}</CardTitle>
+        <div className="flex items-center space-x-2">
+          <div className="flex border rounded-md overflow-hidden">
+            {['line', 'area', 'bar'].map(type => (
+              <Button
+                key={type}
+                variant={chartType === type ? "default" : "ghost"}
+                size="sm"
+                className="h-8 px-2 rounded-none"
+                onClick={() => setChartType(type as 'line' | 'area' | 'bar')}
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </Button>
+            ))}
+          </div>
+          <Select value={selectedRange} onValueChange={setSelectedRange}>
+            <SelectTrigger className="w-24 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {timeRanges.map(range => (
+                <SelectItem key={range} value={range}>{range}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 px-2">
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <CalendarComponent
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="relative" style={{ height: chartHeight }}>
-          <svg width={chartWidth} height={chartHeight} className="overflow-visible">
-            {/* Y-axis */}
-            <line
-              x1={paddingX}
-              y1={paddingY}
-              x2={paddingX}
-              y2={chartHeight - paddingY}
-              stroke="#e5e7eb"
-              strokeWidth={1}
-            />
-            
-            {/* X-axis */}
-            <line
-              x1={paddingX}
-              y1={chartHeight - paddingY}
-              x2="95%"
-              y2={chartHeight - paddingY}
-              stroke="#e5e7eb"
-              strokeWidth={1}
-            />
-            
-            {/* Chart line */}
-            <path
-              d={generatePath()}
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* Data points */}
-            {sortedData.map((d, i) => {
-              const xPos = paddingX + (i / (sortedData.length - 1)) * (500 - 2 * paddingX);
-              const yPos = chartHeight - paddingY - ((d.value - minValue) / (maxValue - minValue)) * (chartHeight - 2 * paddingY);
-              
-              return (
-                <circle
-                  key={i}
-                  cx={xPos}
-                  cy={yPos}
-                  r={4}
-                  fill="#3b82f6"
-                  stroke="white"
-                  strokeWidth={1}
-                />
-              );
-            })}
-          </svg>
-        </div>
-        
-        {/* Legend */}
-        <div className="flex justify-between mt-4 text-xs text-gray-500">
-          {sortedData.length > 0 && (
-            <>
-              <div>{formatDate(sortedData[0].timestamp)}</div>
-              <div>Nostr kind {metricKind}</div>
-              <div>{formatDate(sortedData[sortedData.length - 1].timestamp)}</div>
-            </>
-          )}
-        </div>
-        
-        {/* Latest value */}
-        {sortedData.length > 0 && (
-          <div className="mt-2 text-right">
-            <span className="text-sm text-gray-600">Latest: </span>
-            <span className="text-lg font-bold">
-              {sortedData[sortedData.length - 1].value} {unit}
-            </span>
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className="p-4 bg-muted/20 rounded-md">
+            <p className="text-sm text-muted-foreground">Latest</p>
+            <p className="text-2xl font-semibold">{stats.latest.toFixed(1)}<span className="text-sm font-normal ml-1">{displayUnit || unit}</span></p>
           </div>
-        )}
+          <div className="p-4 bg-muted/20 rounded-md">
+            <p className="text-sm text-muted-foreground">Average</p>
+            <p className="text-2xl font-semibold">{stats.avg.toFixed(1)}<span className="text-sm font-normal ml-1">{displayUnit || unit}</span></p>
+          </div>
+          <div className="p-4 bg-muted/20 rounded-md">
+            <p className="text-sm text-muted-foreground">Min</p>
+            <p className="text-2xl font-semibold">{stats.min.toFixed(1)}<span className="text-sm font-normal ml-1">{displayUnit || unit}</span></p>
+          </div>
+          <div className="p-4 bg-muted/20 rounded-md">
+            <p className="text-sm text-muted-foreground">Max</p>
+            <p className="text-2xl font-semibold">{stats.max.toFixed(1)}<span className="text-sm font-normal ml-1">{displayUnit || unit}</span></p>
+          </div>
+        </div>
+        
+        <div className="w-full h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' ? (
+              <LineChart data={processedData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                />
+                <YAxis 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                  tickFormatter={(value) => `${value}${unit ? ` ${unit}` : ''}`}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${value} ${displayUnit || unit}`, title]}
+                  labelFormatter={(date) => `Date: ${date}`}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  name={title}
+                  stroke="#3b82f6" 
+                  strokeWidth={2} 
+                  dot={{ r: 4 }} 
+                  activeDot={{ r: 6 }} 
+                />
+              </LineChart>
+            ) : chartType === 'area' ? (
+              <AreaChart data={processedData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                />
+                <YAxis 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                  tickFormatter={(value) => `${value}${unit ? ` ${unit}` : ''}`}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${value} ${displayUnit || unit}`, title]}
+                  labelFormatter={(date) => `Date: ${date}`}
+                />
+                <Legend />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  name={title}
+                  stroke="#3b82f6" 
+                  fillOpacity={1}
+                  fill="url(#colorValue)" 
+                />
+              </AreaChart>
+            ) : (
+              <BarChart data={processedData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                />
+                <YAxis 
+                  tick={{ fill: '#888', fontSize: 12 }}
+                  tickLine={{ stroke: '#888' }}
+                  tickFormatter={(value) => `${value}${unit ? ` ${unit}` : ''}`}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${value} ${displayUnit || unit}`, title]}
+                  labelFormatter={(date) => `Date: ${date}`}
+                />
+                <Legend />
+                <Bar 
+                  dataKey="value" 
+                  name={title}
+                  fill="#3b82f6" 
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
-};
-
-export default MetricHistoryChart; 
+} 

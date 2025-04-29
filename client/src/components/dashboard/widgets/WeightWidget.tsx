@@ -40,34 +40,57 @@ export default function WeightWidget({ data, loading }: WeightWidgetProps) {
     ? new Date(data.timestamp).toLocaleDateString() 
     : 'Not recorded';
 
+  // Get the trend direction
+  const getTrend = () => {
+    if (chartData.length < 2) return "stable";
+    const first = chartData[0].value;
+    const last = chartData[chartData.length - 1].value;
+    const diff = last - first;
+    
+    if (Math.abs(diff) < 0.5) return "stable"; // If change is small, consider it stable
+    return diff < 0 ? "down" : "up";
+  };
+
+  const trend = getTrend();
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold">Weight</CardTitle>
-        <Scale className="h-5 w-5 text-primary" />
+    <Card variant="glass" className="overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b border-border/30 bg-primary/5">
+        <CardTitle className="text-lg font-medium flex items-center gap-2">
+          <Scale className="h-5 w-5 text-health-blue" />
+          Weight
+        </CardTitle>
+        <div className="h-7 px-2 rounded-full bg-muted/50 text-xs flex items-center font-medium text-muted-foreground">
+          Last 7 days
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-4">
         <div className="grid grid-cols-2 gap-4">
           <MetricCard
             title="Current Weight"
             value={data?.value}
             unit={data?.unit || 'kg'}
             loading={loading}
+            trend={trend}
+            color="hsl(var(--health-blue))"
           />
           <MetricCard
             title="Last Updated"
             value={lastUpdated}
             loading={loading}
+            color="hsl(var(--health-purple))"
           />
         </div>
 
-        <div className="pt-4">
+        <div className="pt-2">
           <h4 className="text-sm font-medium text-muted-foreground mb-3">Weight Trend</h4>
-          <MetricLineChart 
-            data={chartData}
-            loading={loading}
-            color="hsl(var(--primary))"
-          />
+          <div className="bg-card/30 p-3 rounded-md border border-border/30">
+            <MetricLineChart 
+              data={chartData}
+              loading={loading}
+              color="hsl(var(--health-blue))"
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

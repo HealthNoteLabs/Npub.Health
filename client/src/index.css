@@ -3,11 +3,183 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 220 25% 97%;
+    --foreground: 222 47% 11%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    --primary: 196 100% 47%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 166 84% 51%;
+    --secondary-foreground: 222 47% 11%;
+    
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 46%;
+    
+    --accent: 262 83% 58%;
+    --accent-foreground: 210 40% 98%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 196 100% 47%;
+    
+    --radius: 0.5rem;
+
+    /* Health-specific colors */
+    --health-green: 153 100% 40%;
+    --health-blue: 196 100% 47%;
+    --health-purple: 262 83% 58%;
+    --health-orange: 27 98% 54%;
+    --health-red: 0 84% 60%;
+
+    /* Chart colors */
+    --chart-1: 196 100% 47%;
+    --chart-2: 166 84% 51%;
+    --chart-3: 262 83% 58%;
+    --chart-4: 27 98% 54%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 196 100% 47%;
+    --primary-foreground: 222 47% 11%;
+    
+    --secondary: 166 84% 51%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    
+    --accent: 262 83% 58%;
+    --accent-foreground: 210 40% 98%;
+    
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 196 100% 47%;
+
+    /* Health-specific colors */
+    --health-green: 153 100% 40%;
+    --health-blue: 196 100% 47%;
+    --health-purple: 262 83% 58%;
+    --health-orange: 27 98% 54%;
+    --health-red: 0 84% 60%;
+
+    /* Chart colors - same as light mode for consistency */
+    --chart-1: 196 100% 47%;
+    --chart-2: 166 84% 51%;
+    --chart-3: 262 83% 58%;
+    --chart-4: 27 98% 54%;
+    --chart-5: 0 84% 60%;
+  }
+
   * {
-    @apply border-[#e2e8f0];
+    @apply border-border;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground transition-colors duration-300;
+  }
+
+  /* Special backgrounds */
+  .dashboard-page {
+    @apply bg-gradient-to-br from-background to-background/80;
+  }
+
+  .dark .dashboard-page {
+    background: radial-gradient(
+      circle at center,
+      hsl(222 47% 10%),
+      hsl(222 47% 4%)
+    );
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/50 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/50 rounded-full hover:bg-primary/70 transition-colors;
+  }
+
+  /* Glass effect for cards */
+  .glass {
+    @apply bg-background/70 backdrop-blur-md border border-border/50;
+  }
+
+  .glass-card {
+    @apply glass shadow-md hover:shadow-lg transition-all duration-200;
+  }
+
+  /* Health status colors */
+  .health-status-optimal {
+    @apply text-[hsl(var(--health-green))];
+  }
+  
+  .health-status-good {
+    @apply text-[hsl(var(--health-blue))];
+  }
+  
+  .health-status-moderate {
+    @apply text-[hsl(var(--health-orange))];
+  }
+  
+  .health-status-poor {
+    @apply text-[hsl(var(--health-red))];
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-[hsl(var(--health-blue))] to-[hsl(var(--health-purple))] bg-clip-text text-transparent;
+  }
+
+  /* Gradient borders */
+  .gradient-border {
+    @apply relative before:absolute before:inset-0 before:p-[1px] before:rounded-[inherit] before:bg-gradient-to-r before:from-[hsl(var(--health-blue))] before:to-[hsl(var(--health-purple))] before:-z-10 before:pointer-events-none;
+  }
+
+  /* Animations */
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  .animate-float {
+    animation: float 5s ease-in-out infinite;
   }
 }

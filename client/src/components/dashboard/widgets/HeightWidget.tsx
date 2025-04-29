@@ -5,6 +5,8 @@ import { RulerIcon } from "lucide-react";
 interface HeightData {
   value?: number;
   unit?: 'cm' | 'in';
+  displayValue?: string;
+  displayUnit?: string;
   timestamp?: string;
 }
 
@@ -29,8 +31,8 @@ export default function HeightWidget({ data, loading }: HeightWidgetProps) {
         <div className="grid grid-cols-2 gap-4">
           <MetricCard
             title="Height"
-            value={data?.value}
-            unit={data?.unit || 'cm'}
+            value={data?.displayValue || data?.value}
+            unit={data?.displayUnit || data?.unit || 'ft-in'}
             loading={loading}
           />
           <MetricCard

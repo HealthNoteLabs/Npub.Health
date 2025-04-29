@@ -22,51 +22,20 @@ interface HealthMetricsTrendProps {
 
 // Define colors for each metric
 const metricColors = {
-  running: "hsl(var(--chart-1))",
-  meditation: "hsl(var(--chart-2))",
-  habits: "hsl(var(--chart-3))",
-  sleep: "hsl(var(--chart-4))",
-  nutrition: "hsl(var(--chart-5))",
-  spiritual: "hsl(var(--primary))",
-  lifting: "hsl(var(--secondary))"
+  weight: "hsl(var(--destructive))",
+  calories: "hsl(var(--chart-5))",
+  workout: "hsl(var(--secondary))",
+  height: "hsl(var(--chart-1))"
 };
 
 const metricLabels = {
-  running: "Running (km)",
-  meditation: "Meditation (min)",
-  habits: "Habits Completed",
-  sleep: "Sleep Duration (hrs)",
-  nutrition: "Calories (kcal/100)",
-  spiritual: "Spiritual Score",
-  lifting: "Weight Lifted (kg/10)"
+  weight: "Weight (kg)",
+  calories: "Calories (kcal)",
+  workout: "Workout Duration (min)",
+  height: "Height (cm)"
 };
 
 export default function HealthMetricsTrend({ data, loading }: HealthMetricsTrendProps) {
-  // Sample data structure for demonstration
-  const sampleData = [
-    {
-      date: '2025-02-08',
-      running: 5.2,
-      meditation: 15,
-      habits: 8,
-      sleep: 7.5,
-      nutrition: 22,
-      spiritual: 85,
-      lifting: 120
-    },
-    // Add more sample data points...
-    {
-      date: '2025-02-14',
-      running: 7.0,
-      meditation: 20,
-      habits: 10,
-      sleep: 8.0,
-      nutrition: 25,
-      spiritual: 90,
-      lifting: 150
-    }
-  ];
-
   if (loading) {
     return (
       <Card>
@@ -82,7 +51,24 @@ export default function HealthMetricsTrend({ data, loading }: HealthMetricsTrend
     );
   }
 
-  const chartData = data || sampleData;
+  // Check if we have valid data
+  const chartData = data && data.length > 0 ? data : [];
+  
+  // If no data, show message
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Health Metrics Trends</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px] w-full flex items-center justify-center bg-muted/5 rounded-md">
+            <p className="text-muted-foreground">No trend data available yet. Start tracking your metrics to see trends over time.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

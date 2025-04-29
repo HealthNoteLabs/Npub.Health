@@ -61,6 +61,23 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        health: {
+          green: "hsl(var(--health-green))",
+          blue: "hsl(var(--health-blue))",
+          purple: "hsl(var(--health-purple))",
+          orange: "hsl(var(--health-orange))",
+          red: "hsl(var(--health-red))",
+        },
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'gradient-health': 'linear-gradient(90deg, hsl(var(--health-blue)), hsl(var(--health-purple)))',
+      },
+      boxShadow: {
+        'glow-sm': '0 0 10px rgba(var(--tw-shadow-color), 0.3)',
+        'glow-md': '0 0 15px rgba(var(--tw-shadow-color), 0.4)',
+        'glow-lg': '0 0 25px rgba(var(--tw-shadow-color), 0.5)',
       },
       keyframes: {
         "accordion-down": {
@@ -79,10 +96,38 @@ export default {
             height: "0",
           },
         },
+        "pulse-subtle": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-5px)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "scale-in": {
+          "0%": { transform: "scale(0.95)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "scale-out": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "100%": { transform: "scale(0.95)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-subtle": "pulse-subtle 3s ease-in-out infinite",
+        "float": "float 5s ease-in-out infinite",
+        "shimmer": "shimmer 2s linear infinite",
+        "scale-in": "scale-in 0.2s ease-out",
+        "scale-out": "scale-out 0.2s ease-in",
+      },
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },
