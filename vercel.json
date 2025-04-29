@@ -9,7 +9,8 @@
       "src": "client/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "outputDirectory": "dist"
       }
     }
   ],
@@ -19,7 +20,8 @@
       "dest": "/server/index.ts"
     },
     {
-      "handle": "filesystem"
+      "src": "/assets/(.*)",
+      "dest": "/client/dist/assets/$1"
     },
     {
       "src": "/(.*)",
