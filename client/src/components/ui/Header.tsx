@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNostr } from '../../components/NostrProvider';
 import { nip19 } from 'nostr-tools';
 import { debugNostr } from '../../lib/nostr';
@@ -8,6 +8,8 @@ import { useNostrProfile } from '@/hooks/use-nostr-profile';
 const Header: React.FC = () => {
   const { publicKey, login, logout } = useNostr();
   const { name, picture, displayName, isLoading } = useNostrProfile();
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionFailed, setConnectionFailed] = useState(false);
   
   // Get initials for avatar fallback
   const getInitials = () => {
@@ -25,6 +27,22 @@ const Header: React.FC = () => {
   const handleDebug = async () => {
     console.log('Starting Nostr debug...');
     await debugNostr();
+  };
+
+  const handleLogin = async () => {
+    console.log('Attempting to connect to Nostr...');
+    setIsConnecting(true);
+    setConnectionFailed(false);
+    
+    try {
+      await login();
+      setConnectionFailed(false);
+    } catch (error) {
+      console.error('Login failed:', error);
+      setConnectionFailed(true);
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   return (
@@ -57,17 +75,28 @@ const Header: React.FC = () => {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                console.log('Attempting to connect to Nostr...');
-                login().catch(error => {
-                  console.error('Login failed:', error);
-                });
-              }}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Connect to Nostr
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleLogin}
+                disabled={isConnecting}
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  isConnecting 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                }`}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect to Nostr'}
+              </button>
+              
+              {connectionFailed && (
+                <button
+                  onClick={handleLogin}
+                  className="px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Retry Connection
+                </button>
+              )}
+            </div>
           )}
           
           <button

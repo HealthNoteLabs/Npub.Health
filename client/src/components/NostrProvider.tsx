@@ -42,11 +42,28 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
     }
   }, [publicKey]);
 
+  // Helper function to add a timeout to a promise
+  const withTimeout = (promise: Promise<any>, timeoutMs: number, errorMessage: string) => {
+    let timeoutHandle: NodeJS.Timeout;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    });
+
+    return Promise.race([
+      promise,
+      timeoutPromise
+    ]).finally(() => clearTimeout(timeoutHandle));
+  };
+
   const login = useCallback(async () => {
     console.log('Login function called');
     try {
+      // Force a re-check for window.nostr in case it was initialized after page load
+      const hasNostr = typeof window.nostr !== 'undefined';
+      console.log('Found window.nostr:', hasNostr);
+      
       // Explicitly check for window.nostr before proceeding
-      if (!window.nostr) {
+      if (!hasNostr) {
         console.error('No window.nostr object found');
         toast({
           variant: "destructive",
@@ -70,22 +87,32 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Call getPublicKey with try/catch to capture any internal errors
+      // Add a timeout to prevent hanging if the extension doesn't respond
       let pubkey;
       try {
-        pubkey = await window.nostr.getPublicKey();
+        pubkey = await withTimeout(
+          window.nostr.getPublicKey(),
+          5000, // 5 second timeout
+          "Nostr extension did not respond in time. Try again or reload the page."
+        );
         console.log('Public key retrieved:', pubkey);
       } catch (pkError) {
         console.error('Error getting public key:', pkError);
         toast({
           variant: "destructive",
           title: "Permission Denied",
-          description: "Failed to get public key from your Nostr extension."
+          description: "Failed to get public key from your Nostr extension. Try again or reload the page."
         });
         throw pkError;
       }
 
       if (!pubkey) {
         console.error('No public key returned');
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: "No public key was returned by your Nostr extension."
+        });
         throw new Error('Failed to get public key');
       }
 

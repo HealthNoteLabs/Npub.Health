@@ -68,26 +68,44 @@ export async function debugNostr() {
   const hasNostr = checkNostrAvailability();
   console.log('window.nostr available:', hasNostr);
   
-  if (hasNostr) {
-    console.log('Testing getPublicKey...');
-    try {
-      const pubkey = await window.nostr?.getPublicKey();
-      console.log('Retrieved public key:', pubkey);
-      
-      // Test relay connections
-      console.log('Testing relay connections...');
-      for (const relay of RELAYS) {
-        try {
-          console.log(`Connecting to ${relay}...`);
-          await pool.ensureRelay(relay);
-          console.log(`Successfully connected to ${relay}`);
-        } catch (err) {
-          console.error(`Failed to connect to ${relay}:`, err);
+  console.log('window.nostr type:', typeof window.nostr);
+  if (window.nostr) {
+    console.log('window.nostr keys:', Object.keys(window.nostr));
+    console.log('getPublicKey type:', typeof window.nostr.getPublicKey);
+    console.log('signEvent type:', typeof window.nostr.signEvent);
+    
+    if (typeof window.nostr.getPublicKey === 'function') {
+      console.log('Testing getPublicKey with 5s timeout...');
+      try {
+        // Create a timeout promise to race against getPublicKey
+        const timeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('getPublicKey timeout after 5s')), 5000);
+        });
+        
+        const pubkeyPromise = window.nostr.getPublicKey();
+        const pubkey = await Promise.race([pubkeyPromise, timeout]);
+        console.log('Retrieved public key:', pubkey);
+        
+        // Test relay connections
+        console.log('Testing relay connections...');
+        for (const relay of RELAYS) {
+          try {
+            console.log(`Connecting to ${relay}...`);
+            await pool.ensureRelay(relay);
+            console.log(`Successfully connected to ${relay}`);
+          } catch (err) {
+            console.error(`Failed to connect to ${relay}:`, err);
+          }
         }
+      } catch (err) {
+        console.error('Error getting public key:', err);
       }
-    } catch (err) {
-      console.error('Error getting public key:', err);
+    } else {
+      console.error('getPublicKey is not a function');
     }
+  } else {
+    console.log('Details about window:', Object.keys(window));
+    console.log('Checking if window.nostr is being injected after page load...');
   }
   
   console.log('===== END DEBUG INFORMATION =====');
