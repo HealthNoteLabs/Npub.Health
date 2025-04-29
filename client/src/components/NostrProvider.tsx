@@ -63,7 +63,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       console.log('Found window.nostr:', hasNostr);
       
       // Explicitly check for window.nostr before proceeding
-      if (!hasNostr) {
+      if (!hasNostr || !window.nostr) {
         console.error('No window.nostr object found');
         toast({
           variant: "destructive",
@@ -76,7 +76,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       console.log('Found window.nostr, attempting to get public key...');
       
       // Make sure getPublicKey is a function
-      if (typeof window.nostr.getPublicKey !== 'function') {
+      if (typeof window.nostr?.getPublicKey !== 'function') {
         console.error('window.nostr.getPublicKey is not a function');
         toast({
           variant: "destructive",
@@ -92,16 +92,23 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       try {
         pubkey = await withTimeout(
           window.nostr.getPublicKey(),
-          5000, // 5 second timeout
+          15000, // 15 second timeout (increased from 5s)
           "Nostr extension did not respond in time. Try again or reload the page."
         );
         console.log('Public key retrieved:', pubkey);
       } catch (pkError) {
         console.error('Error getting public key:', pkError);
+        
+        // Check if the error is a timeout
+        const isTimeout = pkError instanceof Error && 
+          pkError.message.includes('did not respond in time');
+        
         toast({
           variant: "destructive",
-          title: "Permission Denied",
-          description: "Failed to get public key from your Nostr extension. Try again or reload the page."
+          title: isTimeout ? "Connection Timeout" : "Permission Denied",
+          description: isTimeout 
+            ? "Your Nostr extension didn't respond in time. Please make sure it's unlocked and try again, or try a different Nostr extension." 
+            : "Failed to get public key from your Nostr extension. Try again or reload the page."
         });
         throw pkError;
       }

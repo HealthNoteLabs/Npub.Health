@@ -75,11 +75,11 @@ export async function debugNostr() {
     console.log('signEvent type:', typeof window.nostr.signEvent);
     
     if (typeof window.nostr.getPublicKey === 'function') {
-      console.log('Testing getPublicKey with 5s timeout...');
+      console.log('Testing getPublicKey with 15s timeout...');
       try {
         // Create a timeout promise to race against getPublicKey
         const timeout = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('getPublicKey timeout after 5s')), 5000);
+          setTimeout(() => reject(new Error('getPublicKey timeout after 15s')), 15000);
         });
         
         const pubkeyPromise = window.nostr.getPublicKey();
