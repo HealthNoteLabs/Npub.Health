@@ -6,5 +6,8 @@
   "scripts": {
     "build": "vite build",
     "start": "vite preview"
+  },
+  "vercel": {
+    "outputDirectory": "dist"
   }
 } 
