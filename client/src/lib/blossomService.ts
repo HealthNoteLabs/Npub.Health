@@ -1,205 +1,251 @@
-import { BlossomClient } from "blossom-client-sdk";
-import { Event } from 'nostr-tools';
-import { EventEmitter } from './EventEmitter';
+import { EventEmitter } from 'events';
+import { BlossomClient, ServerInfo, BlobDescriptor } from './BlossomClient';
 
-// Storage keys
-const BLOSSOM_URL_KEY = 'npub-health-blossom-url';
-const BLOSSOM_TOKEN_KEY = 'npub-health-blossom-token';
-
-interface BlossomConfig {
-  url: string;
-  token?: string;
+// Health data interface
+export interface HealthData {
+  data: any;
+  encryptedWithKey?: string;
+  category?: string;
+  key?: string;
+  timestamp: number;
 }
 
-/**
- * Create a Nostr signer function for Blossom authentication
- */
-async function createNostrSigner(event: any): Promise<Event> {
-  if (!window.nostr) {
-    throw new Error('Nostr extension not found');
-  }
-  return await window.nostr.signEvent(event);
-}
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 /**
  * BlossomService handles interactions with Blossom servers
  */
 class BlossomService extends EventEmitter {
   private client: BlossomClient | null = null;
-  private url: string | null = null;
+  private url: string = '';
   private token: string | null = null;
+  private connectionStatus: ConnectionStatus = 'disconnected';
 
   constructor() {
     super();
-    // Load stored configuration
-    this.loadConfig();
+    this.loadSavedConnection();
   }
 
   /**
-   * Load stored Blossom configuration
+   * Check if currently connected to a Blossom server
    */
-  private loadConfig() {
+  isConnected(): boolean {
+    return this.connectionStatus === 'connected' && this.client !== null;
+  }
+
+  /**
+   * Load any saved connection from localStorage
+   */
+  private loadSavedConnection() {
     try {
-      const savedUrl = localStorage.getItem(BLOSSOM_URL_KEY);
-      const savedToken = localStorage.getItem(BLOSSOM_TOKEN_KEY);
+      const savedUrl = localStorage.getItem('blossom_url');
+      const savedToken = localStorage.getItem('blossom_token');
       
       if (savedUrl) {
-        this.url = savedUrl;
-        this.token = savedToken || null;
-        
-        // Initialize client if URL exists
-        if (this.url) {
-          this.client = new BlossomClient(this.url, createNostrSigner);
-        }
+        this.connect(savedUrl, savedToken || undefined);
       }
     } catch (error) {
-      console.error('Failed to load Blossom configuration:', error);
+      console.error('Error loading saved Blossom connection:', error);
     }
   }
 
   /**
-   * Save Blossom configuration
+   * Test connection to the Blossom server
+   * @returns Server information if connection is successful, null otherwise
    */
-  private saveConfig(config: BlossomConfig) {
+  async testConnection(): Promise<ServerInfo | null> {
     try {
-      localStorage.setItem(BLOSSOM_URL_KEY, config.url);
-      
-      if (config.token) {
-        localStorage.setItem(BLOSSOM_TOKEN_KEY, config.token);
-      } else {
-        localStorage.removeItem(BLOSSOM_TOKEN_KEY);
+      if (!this.client) {
+        return null;
       }
+      
+      // Call getServerInfo method on the client
+      const serverInfo = await this.client.getServerInfo();
+      return serverInfo;
     } catch (error) {
-      console.error('Failed to save Blossom configuration:', error);
+      console.error('Error testing connection to Blossom server:', error);
+      return null;
     }
   }
 
   /**
    * Connect to a Blossom server
    */
-  async connect(url: string): Promise<boolean> {
+  async connect(url: string, token?: string): Promise<boolean> {
     try {
-      // Normalize URL (ensure it has trailing slash)
-      const normalizedUrl = url.endsWith('/') ? url : `${url}/`;
+      this.connectionStatus = 'connecting';
+      this.emit('connecting', { url });
       
-      // Create a new client
-      const client = new BlossomClient(normalizedUrl, createNostrSigner);
-      
-      // Test the connection
-      const healthCheck = await fetch(new URL('health', normalizedUrl).toString(), {
-        method: 'GET',
+      // Initialize client
+      this.client = new BlossomClient({
+        serverUrl: url,
+        token: token
       });
       
-      if (!healthCheck.ok) {
-        throw new Error(`Failed to connect to Blossom server: ${healthCheck.statusText}`);
-      }
-
-      // Update service state
-      this.client = client;
-      this.url = normalizedUrl;
+      // Test connection
+      await this.client.getServerInfo();
       
-      // Save configuration
-      this.saveConfig({ url: normalizedUrl });
+      // Save connection details
+      this.url = url;
+      this.token = token || null;
+      this.connectionStatus = 'connected';
       
-      // Emit connected event
-      this.emit('connected', normalizedUrl);
+      // Store in localStorage for persistence
+      localStorage.setItem('blossom_url', url);
+      if (token) localStorage.setItem('blossom_token', token);
       
+      this.emit('connected', { url });
       return true;
     } catch (error) {
+      this.connectionStatus = 'disconnected';
+      this.client = null;
+      this.emit('error', { error });
       console.error('Failed to connect to Blossom server:', error);
       return false;
     }
   }
 
   /**
-   * Disconnect from the Blossom server
+   * Disconnect from the current Blossom server
    */
   disconnect(): void {
     this.client = null;
-    this.url = null;
+    this.url = '';
     this.token = null;
+    this.connectionStatus = 'disconnected';
     
-    // Clear stored configuration
-    localStorage.removeItem(BLOSSOM_URL_KEY);
-    localStorage.removeItem(BLOSSOM_TOKEN_KEY);
+    // Remove from localStorage
+    localStorage.removeItem('blossom_url');
+    localStorage.removeItem('blossom_token');
     
-    // Emit disconnected event
     this.emit('disconnected');
   }
 
   /**
-   * Check if connected to a Blossom server
+   * Upload health data to the Blossom server
    */
-  isConnected(): boolean {
-    return !!this.client && !!this.url;
-  }
-
-  /**
-   * Get the current Blossom server URL
-   */
-  getServerUrl(): string | null {
-    return this.url;
-  }
-
-  /**
-   * List blobs for the current user
-   */
-  async listBlobs(pubkey: string): Promise<any[]> {
+  async uploadHealthData(data: HealthData, filename: string): Promise<{ hash: string; url: string }> {
     if (!this.client) {
       throw new Error('Not connected to a Blossom server');
     }
-
+    
     try {
-      return await this.client.listBlobs(pubkey);
-    } catch (error) {
-      console.error('Failed to list blobs:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Upload health data to Blossom
-   */
-  async uploadHealthData(data: any, fileName: string): Promise<any> {
-    if (!this.client) {
-      throw new Error('Not connected to a Blossom server');
-    }
-
-    try {
-      // Convert data to file
+      // Convert data to JSON and then to blob
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
       
-      // Upload the file
-      return await this.client.uploadBlob(file);
+      // Upload to Blossom server
+      const result = await this.client.storeBlob(blob, { filename });
+      
+      return {
+        hash: result.hash,
+        url: `${this.url}/api/blobs/${result.hash}`
+      };
     } catch (error) {
-      console.error('Failed to upload health data:', error);
+      console.error('Error uploading health data to Blossom server:', error);
       throw error;
     }
   }
 
   /**
-   * Download health data from Blossom
+   * Download health data from the Blossom server
    */
-  async downloadHealthData(blobHash: string): Promise<any> {
-    if (!this.client || !this.url) {
+  async downloadHealthData(hash: string): Promise<HealthData> {
+    if (!this.client) {
       throw new Error('Not connected to a Blossom server');
     }
-
+    
     try {
-      const response = await fetch(new URL(blobHash, this.url).toString());
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download health data: ${response.statusText}`);
-      }
-      
-      return await response.json();
+      const blob = await this.client.getBlob(hash);
+      const text = await blob.text();
+      return JSON.parse(text);
     } catch (error) {
-      console.error('Failed to download health data:', error);
+      console.error('Error downloading health data from Blossom server:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List all health data stored on the Blossom server
+   */
+  async listHealthData(): Promise<BlobDescriptor[]> {
+    if (!this.client) {
+      throw new Error('Not connected to a Blossom server');
+    }
+    
+    try {
+      return await this.client.listBlobs();
+    } catch (error) {
+      console.error('Error listing health data on Blossom server:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get server information
+   */
+  async getServerInfo(): Promise<ServerInfo> {
+    if (!this.client) {
+      throw new Error('Not connected to a Blossom server');
+    }
+    
+    try {
+      return await this.client.getServerInfo();
+    } catch (error) {
+      console.error('Error getting server info from Blossom server:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a backup of the server
+   */
+  async createBackup(): Promise<{ backupId: string; timestamp: Date; size: number }> {
+    if (!this.client) {
+      throw new Error('Not connected to a Blossom server');
+    }
+    
+    try {
+      return await this.client.createBackup();
+    } catch (error) {
+      console.error('Error creating backup on Blossom server:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List available backups
+   */
+  async listBackups(): Promise<{ backupId: string; timestamp: Date; size: number }[]> {
+    if (!this.client) {
+      throw new Error('Not connected to a Blossom server');
+    }
+    
+    try {
+      return await this.client.listBackups();
+    } catch (error) {
+      console.error('Error listing backups on Blossom server:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Restore from a backup
+   */
+  async restoreBackup(backupId: string): Promise<{ success: boolean; message: string }> {
+    if (!this.client) {
+      throw new Error('Not connected to a Blossom server');
+    }
+    
+    try {
+      return await this.client.restoreBackup(backupId);
+    } catch (error) {
+      console.error('Error restoring backup on Blossom server:', error);
       throw error;
     }
   }
 }
 
-// Export a singleton instance
-export const blossomService = new BlossomService(); 
+// Create a singleton instance
+const blossomService = new BlossomService();
+
+export default blossomService; 

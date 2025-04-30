@@ -4,7 +4,7 @@ import { fetchHealthProfile, fetchWorkouts } from '../../lib/nostr';
 import { type HealthMetrics } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCw, BarChart3, Activity, HeartPulse, Dumbbell, Brain, Utensils, Settings } from 'lucide-react';
+import { RefreshCw, BarChart3, Activity, HeartPulse, Dumbbell, Brain, Utensils, Settings, Server } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RunstrWidget from './widgets/RunstrWidget';
 import CalmstrWidget from './widgets/CalmstrWidget';
@@ -23,6 +23,7 @@ import HealthMetricsTrend from './HealthMetricsTrend';
 import HealthMetricsTrendDetail from './HealthMetricsTrendDetail';
 import MultiMetricCorrelation from './MultiMetricCorrelation';
 import DataManagement from './DataManagement';
+import BlossomServerManager from './BlossomServerManager';
 
 interface TimeSeriesData {
   date: string;
@@ -204,6 +205,13 @@ export default function Dashboard() {
             >
               <Settings className="h-4 w-4" />
               <span>Data Management</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="blossom-server" 
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Server className="h-4 w-4" />
+              <span>Blossom Server</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -402,6 +410,20 @@ export default function Dashboard() {
                 relays={['wss://relay.nostr.band', 'wss://relay.damus.io']} 
                 blossomConnected={false}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="blossom-server" className="space-y-6 animate-scale-in">
+          <Card variant="glass">
+            <CardHeader className="border-b border-border/30 bg-primary/5">
+              <CardTitle className="flex items-center text-xl">
+                <Server className="mr-2 h-5 w-5 text-primary" />
+                Blossom Server Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <BlossomServerManager />
             </CardContent>
           </Card>
         </TabsContent>

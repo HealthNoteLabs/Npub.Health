@@ -405,45 +405,103 @@ export default function DataManagement({
                 )}
                 
                 {importSource === 'blossom' && (
-                  <div className="border rounded-md p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">Blossom Server Status</h3>
-                      {blossomConnected ? (
-                        <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
-                      ) : (
-                        <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full">Not Connected</span>
+                  <div className="space-y-4">
+                    <div className="border rounded-md p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">Blossom Server Status</h3>
+                        {blossomConnected ? (
+                          <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
+                        ) : (
+                          <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full">Not Connected</span>
+                        )}
+                      </div>
+                      
+                      {blossomConnected && (
+                        <div className="p-2 bg-muted/20 rounded flex justify-between items-center">
+                          <span className="text-sm">{blossomUrl}</span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleDisconnectBlossom}
+                          >
+                            Disconnect
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {!blossomConnected && (
+                        <div className="space-y-2">
+                          <Label htmlFor="blossom-url">Blossom Server URL</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              id="blossom-url"
+                              placeholder="https://blossom.example.com" 
+                              value={customBlossomUrl}
+                              onChange={(e) => setCustomBlossomUrl(e.target.value)}
+                            />
+                            <Button onClick={handleConnectBlossom} disabled={!customBlossomUrl || loading}>
+                              {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Connect"}
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                     
-                    {blossomConnected && (
-                      <div className="p-2 bg-muted/20 rounded flex justify-between items-center">
-                        <span className="text-sm">{blossomUrl}</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={handleDisconnectBlossom}
-                        >
-                          Disconnect
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {!blossomConnected && (
-                      <div className="space-y-2">
-                        <Label htmlFor="blossom-url">Blossom Server URL</Label>
-                        <div className="flex gap-2">
-                          <Input 
-                            id="blossom-url"
-                            placeholder="https://blossom.example.com" 
-                            value={customBlossomUrl}
-                            onChange={(e) => setCustomBlossomUrl(e.target.value)}
-                          />
-                          <Button onClick={handleConnectBlossom} disabled={!customBlossomUrl || loading}>
-                            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Connect"}
-                          </Button>
+                    {/* Blossom Server Promotion */}
+                    <div className="border border-primary/20 rounded-md p-4 space-y-3 bg-gradient-to-r from-primary/5 to-transparent">
+                      <div className="flex items-start gap-3">
+                        <Server className="h-8 w-8 text-primary flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-medium text-lg mb-1">Create Your Own Blossom Server</h3>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Take full control of your health data by setting up your own private Blossom server.
+                            Enjoy enhanced privacy, customizable storage, and complete data sovereignty.
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                              </div>
+                              <span>End-to-end encryption</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                              </div>
+                              <span>Complete privacy</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                              </div>
+                              <span>Automatic backups</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                              </div>
+                              <span>Premium support</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    )}
+                      <div className="pt-2">
+                        <Button 
+                          variant="gradient" 
+                          className="w-full" 
+                          size="sm"
+                          onClick={() => {
+                            const tabElement = document.querySelector('[value="blossom-server"]') as HTMLElement;
+                            if (tabElement) {
+                              tabElement.click();
+                            }
+                          }}
+                        >
+                          <Server className="h-3.5 w-3.5 mr-2" />
+                          Create My Server
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
                 
@@ -509,6 +567,63 @@ export default function DataManagement({
                     <p className="text-sm text-muted-foreground">
                       Only export data you're comfortable sharing publicly. Use the Privacy Settings tab to control which metrics are encrypted.
                     </p>
+                  </div>
+                )}
+                
+                {exportDestination === 'blossom' && !blossomConnected && (
+                  <div className="border border-primary/20 rounded-md p-4 space-y-3 bg-gradient-to-r from-primary/5 to-transparent">
+                    <div className="flex items-start gap-3">
+                      <Server className="h-8 w-8 text-primary flex-shrink-0 mt-1" />
+                      <div>
+                        <h3 className="font-medium text-lg mb-1">Need a Private Blossom Server?</h3>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Store your health data with maximum privacy on your own Blossom server.
+                          Choose from different plans with various storage options and features.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                            </div>
+                            <span>One-click setup</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                            </div>
+                            <span>Fully managed</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                            </div>
+                            <span>Starting at 0.0005 BTC/mo</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                            </div>
+                            <span>No technical skills needed</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-2">
+                      <Button 
+                        variant="gradient" 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => {
+                          const tabElement = document.querySelector('[value="blossom-server"]') as HTMLElement;
+                          if (tabElement) {
+                            tabElement.click();
+                          }
+                        }}
+                      >
+                        <Server className="h-3.5 w-3.5 mr-2" />
+                        Create My Server
+                      </Button>
+                    </div>
                   </div>
                 )}
                 

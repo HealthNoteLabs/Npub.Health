@@ -1,6 +1,8 @@
 import { EncryptedDrive } from "blossom-drive-sdk";
 import { BlossomClient } from "blossom-client-sdk";
 import { blossomService } from './blossomService';
+import { v4 as uuidv4 } from 'uuid';
+import { subtle } from 'crypto.subtle';
 
 // Storage keys for encryption and drive information
 const ENCRYPTION_KEY_PREFIX = 'npub-health-enc-key-';
@@ -12,7 +14,11 @@ export enum DriveCategory {
   WORKOUTS = 'workouts',
   MEDICAL = 'medical',
   NUTRITION = 'nutrition',
-  SLEEP = 'sleep'
+  SLEEP = 'sleep',
+  DOCUMENTS = 'documents',
+  MEDICATIONS = 'medications',
+  APPOINTMENTS = 'appointments',
+  VITALS = 'vitals',
 }
 
 /**
@@ -301,7 +307,249 @@ class DriveManager {
       return [];
     }
   }
+
+  private async getEncryptionKey(pubkey: string): Promise<string> {
+    try {
+      // Try to load key from secure storage
+      const storedKey = localStorage.getItem(`encryption_key_${pubkey}`);
+      
+      if (storedKey) {
+        // If key exists, use it
+        return storedKey;
+      } else {
+        // Generate a new encryption key
+        const newKey = await this.generateEncryptionKey();
+        
+        // Store it securely
+        this.storeEncryptionKey(pubkey, newKey);
+        
+        return newKey;
+      }
+    } catch (error) {
+      console.error('Error managing encryption key:', error);
+      throw new Error('Failed to get encryption key');
+    }
+  }
+  
+  /**
+   * Generate a secure encryption key
+   */
+  private async generateEncryptionKey(): Promise<string> {
+    try {
+      // Use Web Crypto API to generate a secure key if available
+      if (window.crypto && window.crypto.subtle) {
+        // Generate a random key
+        const key = await window.crypto.subtle.generateKey(
+          {
+            name: 'AES-GCM',
+            length: 256
+          },
+          true, // extractable
+          ['encrypt', 'decrypt']
+        );
+        
+        // Export the key to raw format
+        const exportedKey = await window.crypto.subtle.exportKey('raw', key);
+        
+        // Convert to base64 string
+        return btoa(String.fromCharCode(...new Uint8Array(exportedKey)));
+      } else {
+        // Fallback to a UUID-based key (less secure, but works everywhere)
+        return uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '');
+      }
+    } catch (error) {
+      console.error('Error generating encryption key:', error);
+      // Fallback method
+      return uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '');
+    }
+  }
+  
+  /**
+   * Store encryption key securely
+   */
+  private storeEncryptionKey(pubkey: string, key: string): void {
+    try {
+      // Store in localStorage (should use more secure storage in production)
+      localStorage.setItem(`encryption_key_${pubkey}`, key);
+    } catch (error) {
+      console.error('Error storing encryption key:', error);
+      throw new Error('Failed to store encryption key');
+    }
+  }
+  
+  /**
+   * Rotate encryption key (create new key and re-encrypt data)
+   */
+  async rotateEncryptionKey(pubkey: string): Promise<boolean> {
+    try {
+      // Get current key
+      const currentKey = await this.getEncryptionKey(pubkey);
+      
+      // Generate new key
+      const newKey = await this.generateEncryptionKey();
+      
+      // List all data
+      const dataList = await blossomService.listHealthData();
+      
+      // Re-encrypt all data with new key
+      for (const item of dataList) {
+        try {
+          // Download data
+          const healthData = await blossomService.downloadHealthData(item.hash);
+          
+          // Decrypt with old key
+          const decryptedData = await this.decryptData(healthData.data, currentKey);
+          
+          // Re-encrypt with new key
+          const reEncryptedData = await this.encryptData(decryptedData, newKey);
+          
+          // Update the data
+          await blossomService.uploadHealthData({
+            ...healthData,
+            data: reEncryptedData,
+            encryptedWithKey: newKey.substring(0, 8) + '...'
+          }, item.metadata?.filename || `reencrypted-${item.hash}.json`);
+        } catch (e) {
+          console.error(`Error reencrypting item ${item.hash}:`, e);
+          // Continue with other items
+        }
+      }
+      
+      // Store new key
+      this.storeEncryptionKey(pubkey, newKey);
+      
+      return true;
+    } catch (error) {
+      console.error('Error rotating encryption key:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Encrypt data with a key
+   */
+  async encryptData(data: string, key: string): Promise<string> {
+    try {
+      // Simple encryption for demo purposes
+      // In production, use a proper encryption library or Web Crypto API
+      const buffer = new TextEncoder().encode(data);
+      const keyBuffer = new TextEncoder().encode(key);
+      
+      if (window.crypto && window.crypto.subtle) {
+        // Convert key to CryptoKey
+        const cryptoKey = await window.crypto.subtle.importKey(
+          'raw',
+          keyBuffer,
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt']
+        );
+        
+        // Generate random IV
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        
+        // Encrypt
+        const encryptedBuffer = await window.crypto.subtle.encrypt(
+          {
+            name: 'AES-GCM',
+            iv
+          },
+          cryptoKey,
+          buffer
+        );
+        
+        // Combine IV and encrypted data and convert to base64
+        const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+        combined.set(iv);
+        combined.set(new Uint8Array(encryptedBuffer), iv.length);
+        
+        return btoa(String.fromCharCode(...combined));
+      } else {
+        // Fallback to simple XOR encryption (not secure, just for demo)
+        return this.simpleEncrypt(data, key);
+      }
+    } catch (error) {
+      console.error('Error encrypting data:', error);
+      // Fallback
+      return this.simpleEncrypt(data, key);
+    }
+  }
+  
+  /**
+   * Decrypt data with a key
+   */
+  async decryptData(encryptedData: string, key: string): Promise<string> {
+    try {
+      if (window.crypto && window.crypto.subtle) {
+        // Convert from base64
+        const combined = new Uint8Array(
+          atob(encryptedData).split('').map(c => c.charCodeAt(0))
+        );
+        
+        // Extract IV (first 12 bytes)
+        const iv = combined.slice(0, 12);
+        const ciphertext = combined.slice(12);
+        
+        // Import key
+        const keyBuffer = new TextEncoder().encode(key);
+        const cryptoKey = await window.crypto.subtle.importKey(
+          'raw',
+          keyBuffer,
+          { name: 'AES-GCM' },
+          false,
+          ['decrypt']
+        );
+        
+        // Decrypt
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          {
+            name: 'AES-GCM',
+            iv
+          },
+          cryptoKey,
+          ciphertext
+        );
+        
+        return new TextDecoder().decode(decryptedBuffer);
+      } else {
+        // Fallback
+        return this.simpleDecrypt(encryptedData, key);
+      }
+    } catch (error) {
+      console.error('Error decrypting data:', error);
+      // Fallback
+      return this.simpleDecrypt(encryptedData, key);
+    }
+  }
+  
+  /**
+   * Simple XOR encryption (not secure, just for demo/fallback)
+   */
+  private simpleEncrypt(text: string, key: string): string {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(
+        text.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+      );
+    }
+    return btoa(result);
+  }
+  
+  /**
+   * Simple XOR decryption (not secure, just for demo/fallback)
+   */
+  private simpleDecrypt(encryptedText: string, key: string): string {
+    const text = atob(encryptedText);
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(
+        text.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+      );
+    }
+    return result;
+  }
 }
 
-// Export a singleton instance
-export const driveManager = new DriveManager(); 
+// Export singleton instance
+const driveManager = new DriveManager();
+export default driveManager; 
