@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from './events';
 import { BlossomClient, ServerInfo, BlobDescriptor } from './BlossomClient';
 
 // Health data interface
@@ -31,6 +31,13 @@ class BlossomService extends EventEmitter {
    */
   isConnected(): boolean {
     return this.connectionStatus === 'connected' && this.client !== null;
+  }
+
+  /**
+   * Get the current Blossom server URL
+   */
+  getServerUrl(): string {
+    return this.url;
   }
 
   /**
@@ -246,6 +253,7 @@ class BlossomService extends EventEmitter {
 }
 
 // Create a singleton instance
-const blossomService = new BlossomService();
+export const blossomService = new BlossomService();
 
+// Also keep the default export for backward compatibility
 export default blossomService; 

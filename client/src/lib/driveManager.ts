@@ -551,5 +551,5 @@ class DriveManager {
 }
 
 // Export singleton instance
-const driveManager = new DriveManager();
+export const driveManager = new DriveManager();
 export default driveManager; 
