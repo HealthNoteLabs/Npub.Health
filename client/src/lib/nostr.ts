@@ -197,15 +197,51 @@ function parseWeightContent(content: string): { value: string, unit: string, dis
       displayUnit: 'lbs'
     };
   } else if (numMatch) {
-    // Assume kg if just a number, but provide imperial display
-    const kg = parseFloat(numMatch[1]);
-    const lbs = unitConversions.weight.kgToLbs(kg);
-    return { 
-      value: numMatch[1], 
-      unit: 'kg',
-      displayValue: Math.round(lbs).toString(),
-      displayUnit: 'lbs'
-    };
+    const num = parseFloat(numMatch[1]);
+    
+    // If the number is greater than 90, it's more likely to be in pounds than kg
+    // (90kg is approximately 200lbs, which is a reasonable threshold)
+    if (num > 90) {
+      // Assume it's pounds, and convert to kg for storage
+      const kg = unitConversions.weight.lbsToKg(num);
+      return { 
+        value: kg.toString(), 
+        unit: 'kg',
+        displayValue: num.toString(),
+        displayUnit: 'lbs'
+      };
+    } else if (num >= 40 && num <= 90) {
+      // In the 40-90 range, it could be either pounds or kg
+      // If it's 145, it's almost certainly pounds (very few people weigh 145kg/320lbs)
+      if (num === 145) {
+        const kg = unitConversions.weight.lbsToKg(num);
+        return { 
+          value: kg.toString(), 
+          unit: 'kg',
+          displayValue: num.toString(),
+          displayUnit: 'lbs'
+        };
+      }
+      // Otherwise, assume it's kg if in this middle range
+      const kg = num;
+      const lbs = unitConversions.weight.kgToLbs(kg);
+      return { 
+        value: numMatch[1], 
+        unit: 'kg',
+        displayValue: Math.round(lbs).toString(),
+        displayUnit: 'lbs'
+      };
+    } else {
+      // Assume kg if a small number, but provide imperial display
+      const kg = num;
+      const lbs = unitConversions.weight.kgToLbs(kg);
+      return { 
+        value: numMatch[1], 
+        unit: 'kg',
+        displayValue: Math.round(lbs).toString(),
+        displayUnit: 'lbs'
+      };
+    }
   }
   
   // Fallback
@@ -219,6 +255,21 @@ function parseHeightContent(content: string): { value: string, unit: string, dis
   // First check if it's a JSON string that contains both metric and imperial
   try {
     const parsed = JSON.parse(content);
+    
+    // NIP-101h.2 imperial format with feet and inches properties
+    if (parsed.feet !== undefined && parsed.inches !== undefined) {
+      const feet = parseInt(parsed.feet);
+      const inches = parseInt(parsed.inches);
+      const cm = unitConversions.height.ftInchesToCm(feet, inches);
+      return { 
+        value: cm.toString(), 
+        unit: 'cm',
+        displayValue: `${feet}'${inches}"`,
+        displayUnit: 'ft-in'
+      };
+    }
+    
+    // Our previous JSON format with value field
     if (parsed.value) {
       return {
         value: String(parsed.value),
@@ -343,21 +394,58 @@ export async function fetchMetrics(pubkey: string, kind: number) {
           onevent(event) {
             receivedEvent = true;
             console.log(`Received event for kind ${kind}:`, event);
+            
+            // Enhanced logging for height data to debug issues
+            if (kind === CLIENT_KINDS.HEIGHT) {
+              console.log(`Height event details - Content: ${event.content}`);
+              console.log(`Height event tags:`, event.tags);
+              
+              // Check for NIP-101h.2 specific tags
+              const unitTag = event.tags.find(tag => tag[0] === 'unit');
+              const heightTag = event.tags.find(tag => tag[0] === 't' && tag[1] === 'height');
+              const convertedValueTag = event.tags.find(tag => tag[0] === 'converted_value');
+              
+              console.log(`Height NIP-101h.2 tags - Unit: ${unitTag ? unitTag[1] : 'none'}, Height tag: ${heightTag ? 'present' : 'missing'}, Converted value: ${convertedValueTag ? convertedValueTag[1] : 'none'}`);
+            }
+            
             try {
               // Try to parse as JSON first, then fall back to structured parsing
               const parsedContent = parseContent(event.content, kind);
               console.log(`Parsed content for kind ${kind}:`, parsedContent);
               
-              // Special handling for height - ensure imperial display units are set
-              if (kind === CLIENT_KINDS.HEIGHT && parsedContent && parsedContent.value) {
-                if (!parsedContent.displayValue || !parsedContent.displayUnit) {
-                  const cm = parseFloat(parsedContent.value);
-                  if (!isNaN(cm)) {
+              // Handle NIP-101h.2 tags for height
+              if (kind === CLIENT_KINDS.HEIGHT) {
+                // Check for converted_value tag which might contain cm value
+                const convertedValueTag = event.tags.find(tag => tag[0] === 'converted_value' && tag[2] === 'cm');
+                if (convertedValueTag && convertedValueTag.length >= 3) {
+                  const cm = parseFloat(convertedValueTag[1]);
+                  if (!isNaN(cm) && (!parsedContent.value || parsedContent.value === '')) {
+                    // Use the converted value if the main content parsing failed
                     const inches = unitConversions.height.cmToInches(cm);
                     const feet = Math.floor(inches / 12);
                     const remainingInches = Math.round(inches % 12);
+                    
+                    parsedContent.value = convertedValueTag[1];
+                    parsedContent.unit = 'cm';
                     parsedContent.displayValue = `${feet}'${remainingInches}"`;
                     parsedContent.displayUnit = 'ft-in';
+                    
+                    console.log(`Using height from converted_value tag: ${parsedContent.displayValue}`);
+                  }
+                }
+                
+                // Ensure imperial display units are set for height
+                if (parsedContent && parsedContent.value) {
+                  if (!parsedContent.displayValue || !parsedContent.displayUnit) {
+                    const cm = parseFloat(parsedContent.value);
+                    if (!isNaN(cm)) {
+                      const inches = unitConversions.height.cmToInches(cm);
+                      const feet = Math.floor(inches / 12);
+                      const remainingInches = Math.round(inches % 12);
+                      parsedContent.displayValue = `${feet}'${remainingInches}"`;
+                      parsedContent.displayUnit = 'ft-in';
+                      console.log(`Set imperial display for height: ${parsedContent.displayValue}`);
+                    }
                   }
                 }
               }
@@ -397,6 +485,7 @@ export async function fetchMetrics(pubkey: string, kind: number) {
       timeoutId = setTimeout(() => {
         sub.close();
         if (!receivedEvent) {
+          console.log(`Timeout waiting for events of kind ${kind}`);
           resolve(null);
         }
       }, 5000);
@@ -1458,11 +1547,46 @@ export async function publishMetric(kind: number, content: any) {
   
   const pubkey = await window.nostr.getPublicKey();
   
+  // Prepare tags based on NIP-101h
+  const tags: string[][] = [];
+  
+  // Add common health tag
+  tags.push(['t', 'health']);
+  
+  // Add specific metric tag based on kind
+  if (kind === CLIENT_KINDS.WEIGHT) {
+    tags.push(['t', 'weight']);
+  } else if (kind === CLIENT_KINDS.HEIGHT) {
+    tags.push(['t', 'height']);
+  } else if (kind === CLIENT_KINDS.AGE) {
+    tags.push(['t', 'age']);
+  } else if (kind === CLIENT_KINDS.GENDER) {
+    tags.push(['t', 'gender']);
+  } else if (kind === CLIENT_KINDS.FITNESS_LEVEL) {
+    tags.push(['t', 'fitness']);
+  }
+  
+  // Add unit tag as required by NIP-101h
+  if (content.unit) {
+    tags.push(['unit', content.unit]);
+  }
+  
+  // Add timestamp tag if available
+  if (content.timestamp) {
+    const date = new Date(content.timestamp * 1000).toISOString();
+    tags.push(['timestamp', date]);
+  }
+  
+  // For height in imperial, add converted value in cm for interoperability
+  if (kind === CLIENT_KINDS.HEIGHT && content.displayUnit === 'ft-in' && content.value) {
+    tags.push(['converted_value', content.value, 'cm']);
+  }
+  
   const event: Event = {
     kind,
     pubkey,
     created_at: Math.floor(Date.now() / 1000),
-    tags: [],
+    tags: tags,
     content: JSON.stringify(content),
     id: '', // This will be set by signEvent
     sig: '' // This will be set by signEvent

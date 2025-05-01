@@ -222,7 +222,7 @@ const WorkoutDashboard: React.FC = () => {
   if (!publicKey) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Please connect your Nostr account to view your workout data.</p>
+        <p className="text-muted-foreground">Please connect your Nostr account to view your workout data.</p>
       </div>
     );
   }
@@ -230,7 +230,7 @@ const WorkoutDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Loading your workout data...</p>
+        <p className="text-muted-foreground">Loading your workout data...</p>
       </div>
     );
   }
@@ -240,20 +240,20 @@ const WorkoutDashboard: React.FC = () => {
       <h1 className="text-2xl font-bold">Workout History</h1>
       
       {workouts.length > 0 ? (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-card rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pace</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calories</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Duration</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Distance</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pace</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Calories</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Details</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-border">
               {workouts.map((workout, index) => {
                 const runstrWorkout = isRunstrWorkout(workout);
                 console.log(`Workout ${index} has ID: ${workout.id}, expanded: ${expandedWorkout === workout.id}`);
@@ -262,9 +262,9 @@ const WorkoutDashboard: React.FC = () => {
                     <tr 
                       className={`
                         transition-colors duration-200
-                        hover:bg-gray-100 cursor-pointer active:bg-gray-200 
-                        ${expandedWorkout === workout.id ? 'bg-blue-50 hover:bg-blue-100' : ''} 
-                        ${runstrWorkout ? 'bg-green-50 hover:bg-green-100' : ''}
+                        hover:bg-muted/50 cursor-pointer active:bg-muted 
+                        ${expandedWorkout === workout.id ? 'bg-primary/10 hover:bg-primary/20' : ''} 
+                        ${runstrWorkout ? 'bg-[hsl(var(--health-green))]/10 hover:bg-[hsl(var(--health-green))]/20' : ''}
                       `}
                       onClick={() => {
                         console.log('Row clicked, workout ID:', workout.id);
@@ -275,7 +275,7 @@ const WorkoutDashboard: React.FC = () => {
                         {formatDate(workout.timestamp)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap flex items-center">
-                        {runstrWorkout && <span className="mr-2 text-green-600 font-medium">🏃</span>}
+                        {runstrWorkout && <span className="mr-2 text-[hsl(var(--health-green))] font-medium">🏃</span>}
                         {workout.title || workout.type || 'Unknown'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -284,25 +284,25 @@ const WorkoutDashboard: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {formatDistance(workout.distance)}
                         {(!workout.distance || workout.distance === 'N/A') && (
-                          <span className="text-xs text-gray-500 block">Distance not recorded</span>
+                          <span className="text-xs text-muted-foreground block">Distance not recorded</span>
                         )}
                         {workout.distance && workout.distance.includes('est.') && (
-                          <span className="text-xs text-gray-500 block">Estimated</span>
+                          <span className="text-xs text-muted-foreground block">Estimated</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {formatPace(workout.pace, workout)}
                         {(!workout.pace || workout.pace === 'N/A') && (
-                          <span className="text-xs text-gray-500 block">Pace not available</span>
+                          <span className="text-xs text-muted-foreground block">Pace not available</span>
                         )}
                         {workout.pace && workout.pace.includes('est.') && (
-                          <span className="text-xs text-gray-500 block">Estimated</span>
+                          <span className="text-xs text-muted-foreground block">Estimated</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {workout.calories ? `${workout.calories} kcal` : 'N/A'}
                         {!workout.calories && (
-                          <span className="text-xs text-gray-500 block">Calories not recorded</span>
+                          <span className="text-xs text-muted-foreground block">Calories not recorded</span>
                         )}
                       </td>
                       <td className="px-6 py-4 flex items-center justify-between">
@@ -312,15 +312,15 @@ const WorkoutDashboard: React.FC = () => {
                             : (workout.notes || 'No details')}
                         </div>
                         <button 
-                          className="ml-2 p-1 rounded-full hover:bg-gray-200 focus:outline-none"
+                          className="ml-2 p-1 rounded-full hover:bg-muted focus:outline-none"
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent the row click from also triggering
                             toggleExpandWorkout(workout.id);
                           }}
                         >
                           {expandedWorkout === workout.id ? 
-                            <span className="text-blue-600 font-bold">▲</span> : 
-                            <span className="text-blue-600 font-bold">▼</span>
+                            <span className="text-primary font-bold">▲</span> : 
+                            <span className="text-primary font-bold">▼</span>
                           }
                         </button>
                       </td>
@@ -329,18 +329,18 @@ const WorkoutDashboard: React.FC = () => {
                     {/* Expanded workout details */}
                     {expandedWorkout === workout.id && (
                       <tr>
-                        <td colSpan={7} className={`px-6 py-4 ${runstrWorkout ? 'bg-green-50' : 'bg-blue-50'}`}>
+                        <td colSpan={7} className={`px-6 py-4 ${runstrWorkout ? 'bg-[hsl(var(--health-green))]/10' : 'bg-primary/10'}`}>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Left column - Workout stats */}
                             <div>
                               <h3 className="font-semibold text-lg mb-2 flex items-center">
-                                {runstrWorkout && <span className="mr-2 text-green-600">🏃</span>}
+                                {runstrWorkout && <span className="mr-2 text-[hsl(var(--health-green))]">🏃</span>}
                                 {workout.title || 'Workout Details'}
                               </h3>
                               
                               <div className="space-y-2 text-sm">
                                 {runstrWorkout && (
-                                  <p className="font-medium text-green-700 bg-green-100 p-2 rounded-md">
+                                  <p className="font-medium text-[hsl(var(--health-green))] bg-[hsl(var(--health-green))]/20 p-2 rounded-md">
                                     This workout was recorded with RUNSTR
                                   </p>
                                 )}
@@ -348,7 +348,7 @@ const WorkoutDashboard: React.FC = () => {
                                 {workout.source && (
                                   <p>
                                     <span className="font-medium">Source: </span>
-                                    <span className="inline-block bg-blue-200 rounded-full px-2 py-1 text-xs font-semibold text-blue-700">
+                                    <span className="inline-block bg-primary/20 rounded-full px-2 py-1 text-xs font-semibold text-primary">
                                       {workout.source}
                                     </span>
                                   </p>
@@ -463,7 +463,7 @@ const WorkoutDashboard: React.FC = () => {
                               {workout.splits && workout.splits.length > 0 ? (
                                 <>
                                   <h3 className="font-semibold text-lg mb-2">Splits</h3>
-                                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                  <table className="min-w-full divide-y divide-border text-sm">
                                     <thead>
                                       <tr>
                                         <th className="px-2 py-1 text-left font-medium">#</th>
@@ -476,7 +476,7 @@ const WorkoutDashboard: React.FC = () => {
                                     </thead>
                                     <tbody>
                                       {workout.splits.map(split => (
-                                        <tr key={split.number} className="border-t border-gray-200">
+                                        <tr key={split.number} className="border-t border-border">
                                           <td className="px-2 py-1">{split.number}</td>
                                           <td className="px-2 py-1">{`${split.distance} ${split.unit}`}</td>
                                           <td className="px-2 py-1">{split.time}</td>
@@ -491,7 +491,7 @@ const WorkoutDashboard: React.FC = () => {
                               ) : runstrWorkout ? (
                                 <>
                                   <h3 className="font-semibold text-lg mb-2">Run Summary</h3>
-                                  <div className="p-4 bg-green-100 rounded-md">
+                                  <div className="p-4 bg-[hsl(var(--health-green))]/20 rounded-md">
                                     <p>This is a running workout recorded with RUNSTR.</p>
                                     <p className="mt-2">
                                       Detailed metrics like splits and pace may not be available for this workout.
@@ -519,9 +519,9 @@ const WorkoutDashboard: React.FC = () => {
           </table>
         </div>
       ) : (
-        <div className="bg-white p-8 rounded-lg shadow text-center">
-          <p className="text-gray-500 mb-4">No workout records found</p>
-          <p className="text-sm text-gray-400">
+        <div className="bg-card p-8 rounded-lg shadow text-center">
+          <p className="text-muted-foreground mb-4">No workout records found</p>
+          <p className="text-sm text-muted-foreground/70">
             Workout data is retrieved from Nostr kind 1301 events. You'll see data here once workouts are published to Nostr from compatible apps.
           </p>
         </div>

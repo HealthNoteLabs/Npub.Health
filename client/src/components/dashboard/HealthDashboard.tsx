@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchHealthProfile, fetchHealthHistory, CLIENT_KINDS } from '../../lib/nostr';
 import { useNostr } from '../../components/NostrProvider';
 import { useNavigate } from 'react-router-dom';
-import MetricCard from './MetricCard';
+import MetricCard, { MetricCardProps } from './MetricCard';
 
 interface HealthMetric {
   value?: string | number;
@@ -53,7 +53,14 @@ function getMetricUnit(metric: HealthMetric | null | unknown, defaultUnit: strin
   
   // For weight, always prefer to show in pounds (lbs)
   if (defaultUnit === 'kg' && typeof metric === 'object' && metric !== null) {
+    // If the metric has a specific displayUnit set for pounds, use it
     if ('displayUnit' in metric && (metric as any).displayUnit === 'lbs') {
+      return 'lbs';
+    }
+    
+    // If input was provided without a unit (like "145"), assume it's pounds
+    if ('value' in metric && typeof (metric as any).value === 'string' &&
+        !isNaN(parseFloat((metric as any).value)) && !(metric as any).unit) {
       return 'lbs';
     }
     
@@ -74,6 +81,37 @@ function getMetricUnit(metric: HealthMetric | null | unknown, defaultUnit: strin
   }
   
   return defaultUnit;
+}
+
+// Helper function to safely format height for display
+function formatHeightValue(metric: any) {
+  // For debugging
+  console.log('Formatting height value:', metric);
+  
+  if (!metric) return 0;
+  
+  // Add specific safeguards for height
+  // First check if we have a valid displayValue
+  if (typeof metric === 'object' && metric !== null && 'displayValue' in metric) {
+    // Check if displayValue is usable
+    if (typeof metric.displayValue === 'string' && metric.displayValue.includes("'")) {
+      console.log('Using height displayValue:', metric.displayValue);
+      // Return 0 as a placeholder for a valid display value so we don't show NaN
+      return 0;
+    }
+  }
+  
+  // If no displayValue, try to use value
+  if (typeof metric === 'object' && metric !== null && 'value' in metric) {
+    const value = metric.value;
+    if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value)))) {
+      console.log('Using height value:', value);
+      return Number(value);
+    }
+  }
+  
+  // If neither works, return a default
+  return 0;
 }
 
 type MetricType = 'weight' | 'height' | 'age' | null;
@@ -182,40 +220,43 @@ const HealthDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <MetricCard 
           title="Weight" 
-          value={getMetricValue(metrics?.weight)} 
-          unit={getMetricUnit(metrics?.weight, 'kg')} 
-          kind={CLIENT_KINDS.WEIGHT}
+          value={Number(metrics?.weight?.displayValue || getMetricValue(metrics?.weight) || 0)} 
+          unit={metrics?.weight ? getMetricUnit(metrics?.weight, 'lbs') : ''} 
+          description={`Weight (${CLIENT_KINDS.WEIGHT})`}
           onClick={() => handleMetricCardClick('weight')}
         />
 
         <MetricCard 
           title="Height" 
-          value={getMetricValue(metrics?.height) || 'Enter height'} 
-          unit={getMetricUnit(metrics?.height, 'cm')} 
-          kind={CLIENT_KINDS.HEIGHT}
+          value={formatHeightValue(metrics?.height)} 
+          displayValue={metrics?.height?.displayValue || getMetricValue(metrics?.height)?.toString()}
+          unit={metrics?.height ? getMetricUnit(metrics?.height, 'ft-in') : ''} 
+          description={`Height (${CLIENT_KINDS.HEIGHT})`}
           onClick={() => handleMetricCardClick('height')}
         />
 
         <MetricCard 
           title="Age" 
-          value={getMetricValue(metrics?.age)} 
+          value={Number(getMetricValue(metrics?.age) || 0)} 
           unit={getMetricUnit(metrics?.age, 'years')} 
-          kind={CLIENT_KINDS.AGE}
+          description={`Age (${CLIENT_KINDS.AGE})`}
           onClick={() => handleMetricCardClick('age')}
         />
 
         <MetricCard 
           title="Gender" 
-          value={getMetricValue(metrics?.gender)} 
+          value={Number(0)} 
+          displayValue={getMetricValue(metrics?.gender)?.toString()}
           unit={getMetricUnit(metrics?.gender, '')} 
-          kind={CLIENT_KINDS.GENDER}
+          description={`Gender (${CLIENT_KINDS.GENDER})`}
         />
 
         <MetricCard 
           title="Fitness Level" 
-          value={getMetricValue(metrics?.fitnessLevel)} 
+          value={Number(0)}
+          displayValue={getMetricValue(metrics?.fitnessLevel)?.toString()}
           unit={getMetricUnit(metrics?.fitnessLevel, '')} 
-          kind={CLIENT_KINDS.FITNESS_LEVEL}
+          description={`Fitness Level (${CLIENT_KINDS.FITNESS_LEVEL})`}
         />
       </div>
 
